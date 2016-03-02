@@ -16,7 +16,7 @@ var _ ucon.HandlersScannerPlugin = &Plugin{}
 var _ ucon.Context = &HandlerInfo{}
 var _ ucon.HandlerContainer = &HandlerInfo{}
 
-var swaggerOperationKey = &struct{}{}
+var swaggerOperationKey = &struct{ temp string }{}
 
 var httpReqType = reflect.TypeOf(&http.Request{})
 var httpRespType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()

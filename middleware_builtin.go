@@ -19,7 +19,7 @@ var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var stringParserType = reflect.TypeOf((*StringParser)(nil)).Elem()
 
 // PathParameterKey is context key of path parameter. context returns map[string]string.
-var PathParameterKey = &struct{}{}
+var PathParameterKey = &struct{ temp string }{}
 
 // ErrInvalidPathParameterType is the error that context with PathParameterKey key returns not map[string]string type.
 var ErrInvalidPathParameterType = errors.New("path parameter type should be map[string]string")
