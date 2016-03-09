@@ -10,10 +10,11 @@ import (
 )
 
 type ReqSwaggerParameter struct {
-	ID      int `swagger:"id,in=path"`
-	Limit   int `swagger:"limit,in=query"`
-	Offset  int `json:"offset" swagger:",in=query"`
-	Ignored int `swagger:"-"`
+	ID      int      `swagger:"id,in=path"`
+	Limit   int      `swagger:"limit,in=query"`
+	Offset  int      `json:"offset" swagger:",in=query"`
+	Ignored int      `swagger:"-"`
+	List    []string `swagger:"list,in=query"`
 }
 
 type Resp struct {
@@ -64,7 +65,7 @@ func TestPluginProcessHandler(t *testing.T) {
 		t.Errorf("unexpected: %v", ok)
 	} else if v.Get == nil {
 		t.Errorf("unexpected: %v", v.Get)
-	} else if len(v.Get.Parameters) != 3 {
+	} else if len(v.Get.Parameters) != 4 {
 		t.Errorf("unexpected: %v", len(v.Get.Parameters))
 	} else {
 		for _, p := range v.Get.Parameters {
@@ -87,6 +88,23 @@ func TestPluginProcessHandler(t *testing.T) {
 					t.Errorf("unexpected: %v", p.In)
 				} else if p.Type != "integer" {
 					t.Errorf("unexpected: %v", p.Type)
+				}
+			case "list":
+				if p.In != "query" {
+					t.Errorf("unexpected: %v", p.In)
+					break
+				}
+				if p.Type != "array" {
+					t.Errorf("unexpected: %v", p.Type)
+					break
+				}
+				if p.Items == nil {
+					t.Errorf("unexpected: %#v", p.Items)
+					break
+				}
+				if p.Items.Type != "string" {
+					t.Errorf("unexpected: %#v", p.Items)
+					break
 				}
 			default:
 				t.Fatalf("unknown name: %s", p.Name)
