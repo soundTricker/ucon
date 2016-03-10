@@ -270,13 +270,29 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 
 			// in query
 			if pw.InQuery() {
-				op.Parameters = append(op.Parameters, &Parameter{
+				param := &Parameter{
 					Name:     pw.Name(),
 					In:       "query",
 					Required: pw.Required(),
 					Type:     pw.ParameterType(),
 					Format:   pw.ParameterFormat(),
-				})
+				}
+				if param.Type == "array" {
+					param.Items = &Items{}
+					tsc, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type)
+					if err != nil {
+						return nil, err
+					}
+					// NOTE(laco) Parameter.Items doesn't allow `$ref`.
+					// Parameter.Items.Type is required.
+					if tsc.Schema == nil || tsc.Schema.Items == nil || tsc.Schema.Items.Type == "" {
+						return nil, errors.New("Items is required")
+					}
+					param.Items.Type = tsc.Schema.Items.Type
+					param.Items.Format = tsc.Schema.Items.Format
+				}
+
+				op.Parameters = append(op.Parameters, param)
 
 				continue
 			}
