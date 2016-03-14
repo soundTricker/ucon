@@ -58,6 +58,15 @@ func TestPluginProcessHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	p.swagger.Info = &Info{
+		Title:   "test",
+		Version: "test",
+	}
+	err = p.swagger.finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if v := len(p.swagger.Paths); v != 1 {
 		t.Fatalf("unexpected: %v", v)
 	}
