@@ -221,7 +221,7 @@ type Parameter struct {
 type Items struct {
 	Type             string        `json:"type" swagger:",req"`
 	Format           string        `json:"format,omitempty"`
-	Items            *Items        `json:"items,omitempty" swagger:",req"`
+	Items            *Items        `json:"items,omitempty"`
 	CollectionFormat string        `json:"collectionFormat,omitempty"`
 	Default          interface{}   `json:"default,omitempty"`
 	Maximum          *int          `json:"maximum,omitempty"`
