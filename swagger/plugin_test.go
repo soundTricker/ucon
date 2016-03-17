@@ -25,7 +25,6 @@ type Resp struct {
 }
 
 type RespSub struct {
-	ID   int64  `json:"id,string"`
 	Text string `json:"text"`
 }
 
@@ -152,10 +151,6 @@ func TestPluginProcessHandler(t *testing.T) {
 		t.Errorf("unexpected: %v", v.Type)
 	} else if v.Ref != "" {
 		t.Errorf("unexpected: %v", v.Ref)
-	} else if v.Properties["id"].Type != "string" {
-		t.Errorf("unexpected: %v", v.Properties["id"].Type)
-	} else if v.Properties["id"].Format != "int64" {
-		t.Errorf("unexpected: %v", v.Properties["id"].Format)
 	}
 }
 
