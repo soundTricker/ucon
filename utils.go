@@ -20,6 +20,16 @@ func (jsonTag TagJSON) Ignored() bool {
 	return strings.Split(string(jsonTag), ",")[0] == "-"
 }
 
+// HasString returns whether a field is emitted as string.
+func (jsonTag TagJSON) HasString() bool {
+	for _, tag := range strings.Split(string(jsonTag), ",")[1:] {
+		if tag == "string" {
+			return true
+		}
+	}
+	return false
+}
+
 // Name returns json tag name.
 func (jsonTag TagJSON) Name() string {
 	return strings.Split(string(jsonTag), ",")[0]

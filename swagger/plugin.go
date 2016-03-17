@@ -279,7 +279,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 				}
 				if param.Type == "array" {
 					param.Items = &Items{}
-					tsc, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type)
+					tsc, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type, pw.StructField.Tag)
 					if err != nil {
 						return nil, err
 					}
@@ -317,7 +317,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	}
 
 	if reqType != nil && bodyParameter != nil {
-		tsc, err := p.reflectTypeToTypeSchemaContainer(reqType)
+		tsc, err := p.reflectTypeToTypeSchemaContainer(reqType, "")
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +335,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	}
 
 	if respType != nil {
-		tsc, err := p.reflectTypeToTypeSchemaContainer(respType)
+		tsc, err := p.reflectTypeToTypeSchemaContainer(respType, "")
 		if err != nil {
 			return nil, err
 		}
@@ -359,7 +359,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 		} else if errType == uconHTTPErrorType {
 			// pass
 		} else {
-			tsc, err := p.reflectTypeToTypeSchemaContainer(errType)
+			tsc, err := p.reflectTypeToTypeSchemaContainer(errType, "")
 			if err != nil {
 				return nil, err
 			}
@@ -386,7 +386,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	return op, nil
 }
 
-func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchema, error) {
+func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect.StructTag) (*TypeSchema, error) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
@@ -414,7 +414,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchem
 	}
 	p.typeSchemaMapper[refT] = ts
 
-	schema.Type = reflectTypeToSwaggerTypeString(refT)
+	schema.Type, schema.Format = reflectTypeAndFormatToSwaggerTypeString(refT, tag)
 	if schema.Type == "" {
 		return nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
 	} else if schema.Type == "object" || schema.Type == "array" {
@@ -449,7 +449,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchem
 						name = sf.Name
 					}
 
-					tsc, err := p.reflectTypeToTypeSchemaContainer(sf.Type)
+					tsc, err := p.reflectTypeToTypeSchemaContainer(sf.Type, sf.Tag)
 					if err != nil {
 						return err
 					}
@@ -474,7 +474,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchem
 				return nil, err
 			}
 		case reflect.Slice, reflect.Array:
-			tsc, err := p.reflectTypeToTypeSchemaContainer(refT.Elem())
+			tsc, err := p.reflectTypeToTypeSchemaContainer(refT.Elem(), "")
 			if err != nil {
 				return nil, err
 			}
@@ -490,7 +490,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchem
 		}
 	}
 
-	return p.reflectTypeToTypeSchemaContainer(refT)
+	return p.reflectTypeToTypeSchemaContainer(refT, tag)
 }
 
 func (p *Plugin) reflectTypeToParameterMapper(refT reflect.Type) (map[string]*parameterWrapper, error) {
@@ -552,33 +552,46 @@ func (p *Plugin) AddTag(tag *Tag) *Tag {
 	return tag
 }
 
-func reflectTypeToSwaggerTypeString(refT reflect.Type) string {
+func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.StructTag) (t, f string) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
+	emitAsString := ucon.NewTagJSON(tag).HasString()
 
 	switch refT.Kind() {
 	case reflect.Struct:
-		return "object"
+		t = "object"
 	case reflect.Slice, reflect.Array:
-		return "array"
+		t = "array"
 	case reflect.Bool:
-		return "boolean"
+		t = "boolean"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		return "integer"
+		t = "integer"
+		f = "int32"
 	case reflect.Int64, reflect.Uint64:
-		return "string"
-	case reflect.Float32, reflect.Float64:
-		return "number"
+		t = "integer"
+		f = "int64"
+	case reflect.Float32:
+		t = "number"
+		f = "float"
+	case reflect.Float64:
+		t = "number"
+		f = "double"
 	case reflect.String:
-		return "string"
+		t = "string"
 	default:
-		return ""
+		t = ""
 	}
+
+	if emitAsString {
+		t = "string"
+	}
+	return
 }
 
 func (pw *parameterWrapper) ParameterType() string {
-	return reflectTypeToSwaggerTypeString(pw.StructField.Type)
+	t, _ := reflectTypeAndFormatToSwaggerTypeString(pw.StructField.Type, pw.StructField.Tag)
+	return t
 }
 
 func (pw *parameterWrapper) ParameterFormat() string {
