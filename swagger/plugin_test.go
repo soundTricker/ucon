@@ -25,7 +25,9 @@ type Resp struct {
 }
 
 type RespSub struct {
-	Text string `json:"text"`
+	ID        int64     `json:"id,string"`
+	Text      string    `json:"text"`
+	CreatedAt time.Time `json:"createdAt,string"`
 }
 
 type handlerContainerImpl struct {
@@ -151,6 +153,14 @@ func TestPluginProcessHandler(t *testing.T) {
 		t.Errorf("unexpected: %v", v.Type)
 	} else if v.Ref != "" {
 		t.Errorf("unexpected: %v", v.Ref)
+	} else if v.Properties["id"].Type != "string" {
+		t.Errorf("unexpected: %v", v.Properties["id"].Type)
+	} else if v.Properties["id"].Format != "int64" {
+		t.Errorf("unexpected: %v", v.Properties["id"].Format)
+	} else if v.Properties["createdAt"].Type != "string" {
+		t.Errorf("unexpected: %v", v.Properties["createdAt"].Type)
+	} else if v.Properties["createdAt"].Format != "date-time" {
+		t.Errorf("unexpected: %v", v.Properties["createdAt"].Format)
 	}
 }
 
@@ -197,7 +207,7 @@ func TestPluginReflectTypeToTypeSchemaContainerWithSelfRecursion(t *testing.T) {
 	target := &SelfRecursion{}
 
 	p := NewPlugin(nil)
-	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target))
+	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
 
 	if err != nil {
 		t.Fatal(err)
@@ -229,7 +239,7 @@ func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
 	target := &HasSlice{}
 
 	p := NewPlugin(nil)
-	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target))
+	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
 
 	if err != nil {
 		t.Fatal(err)
