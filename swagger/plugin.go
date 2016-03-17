@@ -414,7 +414,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type) (*TypeSchem
 	}
 	p.typeSchemaMapper[refT] = ts
 
-	schema.Type, schema.Format = reflectTypeAndFormatToSwaggerTypeString(refT)
+	schema.Type = reflectTypeToSwaggerTypeString(refT)
 	if schema.Type == "" {
 		return nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
 	} else if schema.Type == "object" || schema.Type == "array" {
@@ -552,41 +552,33 @@ func (p *Plugin) AddTag(tag *Tag) *Tag {
 	return tag
 }
 
-func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type) (t, f string) {
+func reflectTypeToSwaggerTypeString(refT reflect.Type) string {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
 
 	switch refT.Kind() {
 	case reflect.Struct:
-		t = "object"
+		return "object"
 	case reflect.Slice, reflect.Array:
-		t = "array"
+		return "array"
 	case reflect.Bool:
-		t = "boolean"
+		return "boolean"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		t = "integer"
-		f = "int32"
+		return "integer"
 	case reflect.Int64, reflect.Uint64:
-		t = "string"
-		f = "int64"
-	case reflect.Float32:
-		t = "number"
-		f = "float"
-	case reflect.Float64:
-		t = "number"
-		f = "double"
+		return "string"
+	case reflect.Float32, reflect.Float64:
+		return "number"
 	case reflect.String:
-		t = "string"
+		return "string"
 	default:
-		t = ""
+		return ""
 	}
-	return
 }
 
 func (pw *parameterWrapper) ParameterType() string {
-	t, _ := reflectTypeAndFormatToSwaggerTypeString(pw.StructField.Type)
-	return t
+	return reflectTypeToSwaggerTypeString(pw.StructField.Type)
 }
 
 func (pw *parameterWrapper) ParameterFormat() string {
