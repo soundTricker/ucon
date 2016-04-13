@@ -157,6 +157,9 @@ func (p *Plugin) processHandler(rd *ucon.RouteDefinition) error {
 		putOperation = func(op *Operation) {
 			item.Patch = op
 		}
+	case "*":
+		// swagger.json should skip wildcard method
+		return nil
 	default:
 		return fmt.Errorf("unknown method: %s", rd.Method)
 	}

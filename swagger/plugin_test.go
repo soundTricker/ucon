@@ -199,6 +199,33 @@ func TestPluginProcessHandlerWithNoopStruct(t *testing.T) {
 	}
 }
 
+func TestPluginProcessHandlerWithWildcardMethod(t *testing.T) {
+	p := NewPlugin(nil)
+
+	rd := &ucon.RouteDefinition{
+		Method:       "*", // should be skipped
+		PathTemplate: ucon.ParsePathTemplate("/api/test/{id}"),
+		HandlerContainer: &handlerContainerImpl{
+			handler: func(c context.Context, _ *ReqSwaggerParameter) error {
+				return nil
+			},
+		},
+	}
+
+	err := p.processHandler(rd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if v := len(p.swagger.Paths); v != 0 {
+		t.Fatalf("unexpected: %v", v)
+	}
+
+	if v := len(p.swagger.Definitions); v != 0 {
+		t.Fatalf("unexpected: %v", v)
+	}
+}
+
 type SelfRecursion struct {
 	Self *SelfRecursion
 }
