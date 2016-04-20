@@ -12,7 +12,7 @@ import (
 )
 
 func TestHttpRWDI(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, HTTPRWDI, func(w http.ResponseWriter, r *http.Request) {
+	b, _ := MakeMiddlewareTestBed(t, HTTPRWDI(), func(w http.ResponseWriter, r *http.Request) {
 		if w == nil {
 			t.Errorf("unexpected: %v", w)
 		}
@@ -27,7 +27,7 @@ func TestHttpRWDI(t *testing.T) {
 }
 
 func TestNetContextDI(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, NetContextDI, func(c context.Context) {
+	b, _ := MakeMiddlewareTestBed(t, NetContextDI(), func(c context.Context) {
 		if c == nil {
 			t.Errorf("unexpected: %v", c)
 		}
@@ -45,7 +45,7 @@ type TargetOfRequestObjectMapper struct {
 }
 
 func TestRequestObjectMapper(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, RequestObjectMapper, func(req *TargetOfRequestObjectMapper) {
+	b, _ := MakeMiddlewareTestBed(t, RequestObjectMapper(), func(req *TargetOfRequestObjectMapper) {
 		if req.ID != 5 {
 			t.Errorf("unexpected: %v", req.ID)
 		}
@@ -70,7 +70,7 @@ func TestRequestObjectMapper(t *testing.T) {
 }
 
 func TestResponseMapperWithBubbleReturnsError(t *testing.T) {
-	b, mux := MakeMiddlewareTestBed(t, ResponseMapper, func() {}, nil)
+	b, mux := MakeMiddlewareTestBed(t, ResponseMapper(), func() {}, nil)
 
 	mux.Middleware(func(b *Bubble) error {
 		return errors.New("strange error")
@@ -88,7 +88,7 @@ func TestResponseMapperWithBubbleReturnsError(t *testing.T) {
 }
 
 func TestResponseMapperWithHandlerReturnsError(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, ResponseMapper, func() error {
+	b, _ := MakeMiddlewareTestBed(t, ResponseMapper(), func() error {
 		return errors.New("strange error")
 	}, nil)
 
@@ -110,7 +110,7 @@ type TargetOfResponseMapper struct {
 }
 
 func TestResponseMapperWithHandlerReturnsResponse(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, ResponseMapper, func() *TargetOfResponseMapper {
+	b, _ := MakeMiddlewareTestBed(t, ResponseMapper(), func() *TargetOfResponseMapper {
 		return &TargetOfResponseMapper{
 			ID:     11,
 			Offset: 22,
@@ -130,7 +130,7 @@ func TestResponseMapperWithHandlerReturnsResponse(t *testing.T) {
 }
 
 func TestResponseMapperWithHandlerReturnsResponseNil(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, ResponseMapper, func() *TargetOfResponseMapper {
+	b, _ := MakeMiddlewareTestBed(t, ResponseMapper(), func() *TargetOfResponseMapper {
 		return nil
 	}, nil)
 
@@ -167,7 +167,7 @@ func (v *TargetOfResponseMapperAndHTTPResponseModifier) Handle(b *Bubble) error 
 }
 
 func TestResponseMapperWithHandlerReturnsHttpResponseModifier(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, ResponseMapper, func() *TargetOfResponseMapperAndHTTPResponseModifier {
+	b, _ := MakeMiddlewareTestBed(t, ResponseMapper(), func() *TargetOfResponseMapperAndHTTPResponseModifier {
 		return &TargetOfResponseMapperAndHTTPResponseModifier{
 			ID:       11,
 			Password: "super ultra secret!",
@@ -208,7 +208,7 @@ func (ce *ResponseMapperCustomError) ErrorMessage() interface{} {
 }
 
 func TestResponseMapperWithCustomErrorType(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, ResponseMapper, func() *ResponseMapperCustomError {
+	b, _ := MakeMiddlewareTestBed(t, ResponseMapper(), func() *ResponseMapperCustomError {
 		return &ResponseMapperCustomError{
 			Message: "Hello from custom error",
 		}
