@@ -73,173 +73,182 @@ type StringParser interface {
 }
 
 // HTTPRWDI injects Bubble.R and Bubble.W into the bubble.Arguments.
-func HTTPRWDI(b *Bubble) error {
-	for idx, argT := range b.ArgumentTypes {
-		if argT == httpReqType {
-			b.Arguments[idx] = reflect.ValueOf(b.R)
-			continue
+func HTTPRWDI() MiddlewareFunc {
+	return func(b *Bubble) error {
+		for idx, argT := range b.ArgumentTypes {
+			if argT == httpReqType {
+				b.Arguments[idx] = reflect.ValueOf(b.R)
+				continue
+			}
+			if argT == httpRespType {
+				b.Arguments[idx] = reflect.ValueOf(b.W)
+				continue
+			}
 		}
-		if argT == httpRespType {
-			b.Arguments[idx] = reflect.ValueOf(b.W)
-			continue
-		}
-	}
 
-	return b.Next()
+		return b.Next()
+	}
 }
 
 // NetContextDI injects Bubble.Context into the bubble.Arguments.
-func NetContextDI(b *Bubble) error {
-	for idx, argT := range b.ArgumentTypes {
-		if argT == netContextType {
-			b.Arguments[idx] = reflect.ValueOf(b.Context)
-			continue
+func NetContextDI() MiddlewareFunc {
+	return func(b *Bubble) error {
+		for idx, argT := range b.ArgumentTypes {
+			if argT == netContextType {
+				b.Arguments[idx] = reflect.ValueOf(b.Context)
+				continue
+			}
 		}
-	}
 
-	return b.Next()
+		return b.Next()
+	}
 }
 
 // RequestObjectMapper converts a request to object and injects it into the bubble.Arguments.
-func RequestObjectMapper(b *Bubble) error {
-	argIdx := -1
-	var argT reflect.Type
-	for idx, arg := range b.Arguments {
-		if arg.IsValid() {
-			// already injected
-			continue
-		}
-		if b.ArgumentTypes[idx].Kind() != reflect.Ptr || b.ArgumentTypes[idx].Elem().Kind() != reflect.Struct {
-			// only support for struct
-			continue
-		}
-		argT = b.ArgumentTypes[idx]
-		argIdx = idx
-		break
-	}
-
-	if argT == nil {
-		return b.Next()
-	}
-
-	reqV := reflect.New(argT.Elem())
-	req := reqV.Interface()
-
-	// NOTE value overwrited by below process
-	// url path extract
-	if v := b.Context.Value(PathParameterKey); v != nil {
-		params, ok := v.(map[string]string)
-		if !ok {
-			return ErrInvalidPathParameterType
-		}
-		for key, value := range params {
-			found, err := valueStringMapper(reqV, key, value)
-			if err != nil {
-				return err
+func RequestObjectMapper() MiddlewareFunc {
+	return func(b *Bubble) error {
+		argIdx := -1
+		var argT reflect.Type
+		for idx, arg := range b.Arguments {
+			if arg.IsValid() {
+				// already injected
+				continue
 			}
-			if !found {
-				return ErrPathParameterFieldMissing
+			if b.ArgumentTypes[idx].Kind() != reflect.Ptr || b.ArgumentTypes[idx].Elem().Kind() != reflect.Struct {
+				// only support for struct
+				continue
 			}
+			argT = b.ArgumentTypes[idx]
+			argIdx = idx
+			break
 		}
-	}
 
-	// url get parameter
-	for key, ss := range b.R.URL.Query() {
-		_, err := valueStringSliceMapper(reqV, key, ss)
-		if err != nil {
-			return err
+		if argT == nil {
+			return b.Next()
 		}
-	}
 
-	var body []byte
-	var err error
-	if b.R.Body != nil { // this case occured in unit test
-		defer b.R.Body.Close()
-		body, err = ioutil.ReadAll(b.R.Body)
-	}
-	if err != nil {
-		return err
-	}
+		reqV := reflect.New(argT.Elem())
+		req := reqV.Interface()
 
-	// request body as JSON
-	{
-		// where is the spec???
-		ct := strings.Split(b.R.Header.Get("Content-Type"), ";")
-		// TODO check charset
-		if ct[0] == "application/json" {
-			if len(body) == 2 {
-				// dirty hack. {} map to []interface or [] map to normal struct.
-			} else if len(body) != 0 {
-				err := json.Unmarshal(body, req)
+		// NOTE value overwrited by below process
+		// url path extract
+		if v := b.Context.Value(PathParameterKey); v != nil {
+			params, ok := v.(map[string]string)
+			if !ok {
+				return ErrInvalidPathParameterType
+			}
+			for key, value := range params {
+				found, err := valueStringMapper(reqV, key, value)
 				if err != nil {
-					return newBadRequestf(err.Error())
+					return err
+				}
+				if !found {
+					return ErrPathParameterFieldMissing
 				}
 			}
 		}
+
+		// url get parameter
+		for key, ss := range b.R.URL.Query() {
+			_, err := valueStringSliceMapper(reqV, key, ss)
+			if err != nil {
+				return err
+			}
+		}
+
+		var body []byte
+		var err error
+		if b.R.Body != nil {
+			// this case occured in unit test
+			defer b.R.Body.Close()
+			body, err = ioutil.ReadAll(b.R.Body)
+		}
+		if err != nil {
+			return err
+		}
+
+		// request body as JSON
+		{
+			// where is the spec???
+			ct := strings.Split(b.R.Header.Get("Content-Type"), ";")
+			// TODO check charset
+			if ct[0] == "application/json" {
+				if len(body) == 2 {
+					// dirty hack. {} map to []interface or [] map to normal struct.
+				} else if len(body) != 0 {
+					err := json.Unmarshal(body, req)
+					if err != nil {
+						return newBadRequestf(err.Error())
+					}
+				}
+			}
+		}
+		// NOTE need request body as a=b&c=d style parsing?
+
+		b.Arguments[argIdx] = reqV
+
+		return b.Next()
 	}
-	// NOTE need request body as a=b&c=d style parsing?
-
-	b.Arguments[argIdx] = reqV
-
-	return b.Next()
 }
 
 // ResponseMapper converts a response object to JSON and writes it as response body.
-func ResponseMapper(b *Bubble) error {
-	err := b.Next()
+func ResponseMapper() MiddlewareFunc {
+	return func(b *Bubble) error {
+		err := b.Next()
 
-	// first, error handling
-	if err != nil {
-		return b.writeErrorObject(err)
-	}
-
-	// second, error from handlers
-	for idx := len(b.Returns) - 1; 0 <= idx; idx-- {
-		rv := b.Returns[idx]
-		if rv.Type().AssignableTo(errorType) && !rv.IsNil() {
-			err := rv.Interface().(error)
+		// first, error handling
+		if err != nil {
 			return b.writeErrorObject(err)
 		}
-	}
 
-	// last, write payload
-	for _, rv := range b.Returns {
-		if rv.Type().AssignableTo(errorType) {
-			continue
+		// second, error from handlers
+		for idx := len(b.Returns) - 1; 0 <= idx; idx-- {
+			rv := b.Returns[idx]
+			if rv.Type().AssignableTo(errorType) && !rv.IsNil() {
+				err := rv.Interface().(error)
+				return b.writeErrorObject(err)
+			}
 		}
 
-		v := rv.Interface()
-		if m, ok := v.(HTTPResponseModifier); ok {
-			return m.Handle(b)
-		} else if !rv.IsNil() {
-			var resp []byte
-			var err error
-			if b.Debug {
-				resp, err = json.MarshalIndent(v, "", "  ")
-			} else {
-				resp, err = json.Marshal(v)
+		// last, write payload
+		for _, rv := range b.Returns {
+			if rv.Type().AssignableTo(errorType) {
+				continue
 			}
-			if err != nil {
-				http.Error(b.W, err.Error(), http.StatusInternalServerError)
-				return err
-			}
-			b.W.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			b.W.WriteHeader(http.StatusOK)
-			b.W.Write(resp)
-			return nil
-		} else {
-			b.W.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			b.W.WriteHeader(http.StatusOK)
-			if rv.Type().Kind() == reflect.Slice {
-				b.W.Write([]byte("[]"))
-			} else {
-				b.W.Write([]byte("{}"))
-			}
-			return nil
-		}
-	}
 
-	return nil
+			v := rv.Interface()
+			if m, ok := v.(HTTPResponseModifier); ok {
+				return m.Handle(b)
+			} else if !rv.IsNil() {
+				var resp []byte
+				var err error
+				if b.Debug {
+					resp, err = json.MarshalIndent(v, "", "  ")
+				} else {
+					resp, err = json.Marshal(v)
+				}
+				if err != nil {
+					http.Error(b.W, err.Error(), http.StatusInternalServerError)
+					return err
+				}
+				b.W.Header().Set("Content-Type", "application/json; charset=UTF-8")
+				b.W.WriteHeader(http.StatusOK)
+				b.W.Write(resp)
+				return nil
+			} else {
+				b.W.Header().Set("Content-Type", "application/json; charset=UTF-8")
+				b.W.WriteHeader(http.StatusOK)
+				if rv.Type().Kind() == reflect.Slice {
+					b.W.Write([]byte("[]"))
+				} else {
+					b.W.Write([]byte("{}"))
+				}
+				return nil
+			}
+		}
+
+		return nil
+	}
 }
 
 func (b *Bubble) writeErrorObject(err error) error {

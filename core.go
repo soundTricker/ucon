@@ -137,10 +137,10 @@ func (hc *handlerContainerImpl) Handler() interface{} {
 
 // Orthodox middlewares enable to DefaultServeMux.
 func Orthodox() {
-	DefaultMux.Middleware(ResponseMapper)
-	DefaultMux.Middleware(HTTPRWDI)
-	DefaultMux.Middleware(NetContextDI)
-	DefaultMux.Middleware(RequestObjectMapper)
+	DefaultMux.Middleware(ResponseMapper())
+	DefaultMux.Middleware(HTTPRWDI())
+	DefaultMux.Middleware(NetContextDI())
+	DefaultMux.Middleware(RequestObjectMapper())
 }
 
 // Middleware can append Middleware to ServeMux.
