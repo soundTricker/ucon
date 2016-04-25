@@ -151,14 +151,16 @@ func (ro *Router) pickupBestRouteDefinition(r *http.Request) *RouteDefinition {
 
 	for _, rd := range ro.handlers {
 		mRate := methodMatchRate(rd)
-		if mRate == noMethodMatch || mRate < bestMethodMatchRate {
-			// 選外
+		if mRate == noMethodMatch {
+			continue
+		} else if mRate < bestMethodMatchRate {
 			continue
 		}
 
 		pRate := pathMatchRate(rd)
-		if pRate == noPathMatch || pRate <= bestPathMatchRate {
-			// 選外 先にマッチしたもの優先なので
+		if pRate == noPathMatch {
+			continue
+		} else if pRate < bestPathMatchRate {
 			continue
 		}
 

@@ -88,12 +88,16 @@ func (m *ServeMux) ListenAndServe(addr string) error {
 func (m *ServeMux) Handle(method string, path string, hc HandlerContainer) {
 	CheckFunction(hc.Handler())
 
-	rd := &RouteDefinition{
-		Method:           strings.ToUpper(method),
-		PathTemplate:     ParsePathTemplate(path),
-		HandlerContainer: hc,
+	pathTmpl := ParsePathTemplate(path)
+	methods := strings.Split(strings.ToUpper(method), ",")
+	for _, method := range methods {
+		rd := &RouteDefinition{
+			Method:           method,
+			PathTemplate:     pathTmpl,
+			HandlerContainer: hc,
+		}
+		m.router.addRoute(rd)
 	}
-	m.router.addRoute(rd)
 }
 
 // HandleFunc register the handler function for the given method & path to the ServeMux.

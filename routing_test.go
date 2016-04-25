@@ -65,7 +65,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 	HandleFunc("POST", "/api/todo/nested/too/long/", h)
 	HandleFunc("POST", "/api/todo/nested/", h)
 
-	{ // OPTIONS /
+	{
+		// OPTIONS /
 		req, err := http.NewRequest("OPTIONS", "/api/todo", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -78,7 +79,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Errorf("unexpected: %v", rd)
 		}
 	}
-	{ // * /foobar/
+	{
+		// * /foobar/
 		req, err := http.NewRequest("HEAD", "/foobar/buzz", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -91,7 +93,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Errorf("unexpected: %v", rd)
 		}
 	}
-	{ // GET /api/todo/{id}
+	{
+		// GET /api/todo/{id}
 		req, err := http.NewRequest("GET", "/api/todo/1", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -104,7 +107,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Errorf("unexpected: %v", rd)
 		}
 	}
-	{ // handler is not exists
+	{
+		// handler is not exists
 		req, err := http.NewRequest("GET", "/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -114,7 +118,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 	}
-	{ // POST /api/todo matches this request
+	{
+		// POST /api/todo matches this request
 		req, err := http.NewRequest("POST", "/api/todo/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -127,7 +132,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Errorf("unexpected: %v", rd)
 		}
 	}
-	{ // POST /api/todo/nested/too/long/
+	{
+		// POST /api/todo/nested/too/long/
 		req, err := http.NewRequest("POST", "/api/todo/nested/too/long/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -140,7 +146,8 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Errorf("unexpected: %v", rd)
 		}
 	}
-	{ // POST /api/todo/nested/
+	{
+		// POST /api/todo/nested/
 		req, err := http.NewRequest("POST", "/api/todo/nested/too", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -168,7 +175,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 	HandleFunc("GET", "/c", h)
 	HandleFunc("GET", "/c/d", h)
 
-	{ // GET / -> /
+	{
+		// GET / -> /
 		req, err := http.NewRequest("GET", "/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -181,7 +189,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
-	{ // GET /a -> /a
+	{
+		// GET /a -> /a
 		req, err := http.NewRequest("GET", "/a", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -194,7 +203,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
-	{ // GET /a/b -> /a/b
+	{
+		// GET /a/b -> /a/b
 		req, err := http.NewRequest("GET", "/a/b", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -207,7 +217,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
-	{ // GET /a/c -> /a/
+	{
+		// GET /a/c -> /a/
 		req, err := http.NewRequest("GET", "/a/c", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -220,7 +231,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
-	{ // GET /x -> /
+	{
+		// GET /x -> /
 		req, err := http.NewRequest("GET", "/x", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -233,7 +245,8 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
-	{ // GET /c/ -> /c
+	{
+		// GET /c/ -> /c
 		req, err := http.NewRequest("GET", "/c/", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -243,6 +256,88 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.PathTemplate.PathTemplate != "/c" {
+			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
+		}
+	}
+}
+
+func TestRouterPickupBestRouteDefinitionFocusOnMultipleMethod(t *testing.T) {
+	DefaultMux = NewServeMux()
+
+	h := func() {}
+
+	HandleFunc("OPTIONS", "/", h)
+	HandleFunc("*", "/foo/bar", h)
+	HandleFunc("GET,POST,PUT", "/foo", h)
+	HandleFunc("PUT", "/foo/bar", h)
+
+	{
+		// OPTIONS /foo/bar -> /
+		req, err := http.NewRequest("OPTIONS", "/foo/bar", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "OPTIONS" {
+			t.Fatalf("unexpected: %#v", rd.Method)
+		}
+		if rd.PathTemplate.PathTemplate != "/" {
+			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
+		}
+	}
+	{
+		// GET /foo
+		req, err := http.NewRequest("GET", "/foo", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "GET" {
+			t.Fatalf("unexpected: %#v", rd.Method)
+		}
+		if rd.PathTemplate.PathTemplate != "/foo" {
+			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
+		}
+	}
+	{
+		// POST /foo/bar -> * /foo/bar
+		// earlier is better
+		req, err := http.NewRequest("POST", "/foo/bar", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "*" {
+			t.Fatalf("unexpected: %#v", rd.Method)
+		}
+		if rd.PathTemplate.PathTemplate != "/foo/bar" {
+			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
+		}
+	}
+	{
+		// PUT /foo/bar
+		// exact match is better
+		req, err := http.NewRequest("PUT", "/foo/bar", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "PUT" {
+			t.Fatalf("unexpected: %#v", rd.Method)
+		}
+		if rd.PathTemplate.PathTemplate != "/foo/bar" {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
 		}
 	}
