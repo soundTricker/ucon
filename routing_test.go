@@ -76,7 +76,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "OPTIONS" || rd.PathTemplate.PathTemplate != "/" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 	{
@@ -90,7 +90,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "*" || rd.PathTemplate.PathTemplate != "/foobar/" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 	{
@@ -104,7 +104,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "GET" || rd.PathTemplate.PathTemplate != "/api/todo/{id}" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 	{
@@ -129,7 +129,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "POST" || rd.PathTemplate.PathTemplate != "/api/todo" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 	{
@@ -143,7 +143,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "POST" || rd.PathTemplate.PathTemplate != "/api/todo/nested/too/long/" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 	{
@@ -157,7 +157,7 @@ func TestRouterPickupBestRouteDefinition(t *testing.T) {
 			t.Fatalf("unexpected")
 		}
 		if rd.Method != "POST" || rd.PathTemplate.PathTemplate != "/api/todo/nested/" {
-			t.Errorf("unexpected: %v", rd)
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 }
@@ -257,6 +257,44 @@ func TestRouterPickupBestRouteDefinitionFocusOnMatchLength(t *testing.T) {
 		}
 		if rd.PathTemplate.PathTemplate != "/c" {
 			t.Fatalf("unexpected: %v <- %#v", req.URL.Path, rd.PathTemplate)
+		}
+	}
+}
+
+func TestRouterPickupBestRouteDefinitionFocusOnEarliestOne(t *testing.T) {
+	DefaultMux = NewServeMux()
+
+	h := func() {}
+
+	HandleFunc("GET", "/api/todo/special", h)
+	HandleFunc("GET", "/api/todo/{id}", h)
+
+	{
+		// GET /api/todo/special
+		req, err := http.NewRequest("GET", "/api/todo/special", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "GET" || rd.PathTemplate.PathTemplate != "/api/todo/special" {
+			t.Errorf("unexpected: %#v", rd)
+		}
+	}
+	{
+		// GET /api/todo/111 -> /api/todo/{id}
+		req, err := http.NewRequest("GET", "/api/todo/111", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rd := DefaultMux.router.pickupBestRouteDefinition(req)
+		if rd == nil {
+			t.Fatalf("unexpected")
+		}
+		if rd.Method != "GET" || rd.PathTemplate.PathTemplate != "/api/todo/{id}" {
+			t.Errorf("unexpected: %#v", rd)
 		}
 	}
 }

@@ -164,6 +164,10 @@ func (ro *Router) pickupBestRouteDefinition(r *http.Request) *RouteDefinition {
 			continue
 		}
 
+		if bestMethodMatchRate == mRate && bestPathMatchRate == pRate {
+			continue
+		}
+
 		bestMethodMatchRate = mRate
 		bestPathMatchRate = pRate
 		bestRoute = rd
