@@ -412,3 +412,45 @@ func TestPathTemplateMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestPathTemplateMatch_fallback(t *testing.T) {
+	pt := ParsePathTemplate("/")
+	reqURL, err := url.Parse("http://example.com/index.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reqURL.EscapedPath())
+	match, _ := pt.Match(reqURL.EscapedPath())
+	if !match {
+		t.Fatalf("unexpected")
+	}
+}
+
+func TestPathTemplateMatch_aLotOfParameter(t *testing.T) {
+	pt := ParsePathTemplate("/api/{id}")
+	reqURL, err := url.Parse("http://example.com/api/1/2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reqURL.EscapedPath())
+	match, params := pt.Match(reqURL.EscapedPath())
+	if !match {
+		t.Fatalf("unexpected")
+	}
+	if v := params["id"]; v != "1" {
+		t.Fatalf("unexpected: %v", v)
+	}
+}
+
+func TestPathTemplateMatch_failure(t *testing.T) {
+	pt := ParsePathTemplate("/api/")
+	reqURL, err := url.Parse("http://example.com/static/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reqURL.EscapedPath())
+	match, _ := pt.Match(reqURL.EscapedPath())
+	if match {
+		t.Fatalf("unexpected")
+	}
+}

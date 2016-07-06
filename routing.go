@@ -195,26 +195,25 @@ type PathTemplate struct {
 
 // Match checks whether PathTemplate matches the request path.
 // If the path contains parameter templates, those key-value map is also returned.
-func (pt *PathTemplate) Match(reqPath string) (bool, map[string]string) {
+func (pt *PathTemplate) Match(requestPath string) (bool, map[string]string) {
 	if pt.PathTemplate == pt.httpHandlePath {
 		// TODO ざっくりした実装なので後でリファクタリングすること
-		if strings.HasPrefix(reqPath, pt.httpHandlePath) {
+		if strings.HasPrefix(requestPath, pt.httpHandlePath) {
 			return true, nil
 		}
 	}
 
-	reqPathSplitted := strings.Split(reqPath, "/")
-	if tmplLen, reqLen := len(pt.splittedPathTemplate), len(reqPathSplitted); tmplLen < reqLen {
+	requestPathSplitted := strings.Split(requestPath, "/")
+	if requiredLen, requestLen := len(pt.splittedPathTemplate), len(requestPathSplitted); requiredLen < requestLen {
 		// I want to match /js/index.js to / :)
-		reqPathSplitted = reqPathSplitted[0 : tmplLen-1]
-		reqPathSplitted = append(reqPathSplitted, "")
-	} else if tmplLen != reqLen {
+		requestPathSplitted = requestPathSplitted[0:requiredLen]
+	} else if requiredLen != requestLen {
 		return false, nil
 	}
 
 	params := make(map[string]string)
 	for idx, s := range pt.splittedPathTemplate {
-		reqPart := reqPathSplitted[idx]
+		reqPart := requestPathSplitted[idx]
 		if pt.isVariables[idx] {
 			v, err := url.QueryUnescape(reqPart)
 			if err != nil {
