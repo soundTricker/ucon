@@ -442,6 +442,22 @@ func TestPathTemplateMatch_aLotOfParameter(t *testing.T) {
 	}
 }
 
+func TestPathTemplateMatch_tooFewParameter(t *testing.T) {
+	pt := ParsePathTemplate("/api/{id}")
+	reqURL, err := url.Parse("http://example.com/api/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(reqURL.EscapedPath())
+	match, params := pt.Match(reqURL.EscapedPath())
+	if match {
+		t.Fatalf("unexpected")
+	}
+	if _, ok := params["id"]; ok {
+		t.Fatalf("unexpected: %v", ok)
+	}
+}
+
 func TestPathTemplateMatch_failure(t *testing.T) {
 	pt := ParsePathTemplate("/api/")
 	reqURL, err := url.Parse("http://example.com/static/")
