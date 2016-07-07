@@ -215,6 +215,9 @@ func (pt *PathTemplate) Match(requestPath string) (bool, map[string]string) {
 	for idx, s := range pt.splittedPathTemplate {
 		reqPart := requestPathSplitted[idx]
 		if pt.isVariables[idx] {
+			if reqPart == "" {
+				return false, nil
+			}
 			v, err := url.QueryUnescape(reqPart)
 			if err != nil {
 				v = reqPart
