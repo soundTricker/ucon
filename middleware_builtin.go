@@ -138,7 +138,10 @@ func RequestObjectMapper() MiddlewareFunc {
 				return ErrInvalidPathParameterType
 			}
 			for key, value := range params {
-				valueStringMapper(reqV, key, value)
+				found, _ := valueStringMapper(reqV, key, value)
+				if !found {
+					return ErrPathParameterFieldMissing
+				}
 			}
 		}
 

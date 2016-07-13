@@ -85,7 +85,7 @@ func valueStringMapper(target reflect.Value, key string, value string) (bool, er
 		if ft := f.Type(); ft.AssignableTo(stringParserType) {
 			v, err := reflect.New(ft).Interface().(StringParser).ParseString(value)
 			if err != nil {
-				return false, err
+				return true, err
 			}
 			f.Set(reflect.ValueOf(v))
 			return true, nil
@@ -93,7 +93,7 @@ func valueStringMapper(target reflect.Value, key string, value string) (bool, er
 
 		err := SetValueFromString(f, value)
 		if err != nil {
-			return false, err
+			return true, err
 		}
 
 		return true, nil
