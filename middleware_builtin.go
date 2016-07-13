@@ -130,7 +130,7 @@ func RequestObjectMapper() MiddlewareFunc {
 		reqV := reflect.New(argT.Elem())
 		req := reqV.Interface()
 
-		// NOTE value overwrited by below process
+		// NOTE value will be overwritten by below process
 		// url path extract
 		if v := b.Context.Value(PathParameterKey); v != nil {
 			params, ok := v.(map[string]string)
@@ -138,10 +138,7 @@ func RequestObjectMapper() MiddlewareFunc {
 				return ErrInvalidPathParameterType
 			}
 			for key, value := range params {
-				found, err := valueStringMapper(reqV, key, value)
-				if err != nil {
-					return err
-				}
+				found, _ := valueStringMapper(reqV, key, value)
 				if !found {
 					return ErrPathParameterFieldMissing
 				}

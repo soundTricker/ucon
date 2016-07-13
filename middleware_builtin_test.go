@@ -103,6 +103,25 @@ func TestResponseMapperWithHandlerReturnsError(t *testing.T) {
 	}
 }
 
+func TestRequestObjectMapperWithWrongTypedPathParameter(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, RequestObjectMapper(), func(req *TargetOfRequestObjectMapper) {
+		if req.ID != 0 {
+			t.Errorf("unexpected: %v", req.ID)
+		}
+	}, &BubbleTestOption{
+		Method: "POST",
+		URL:    "/api/todo/{id}",
+		Body:   strings.NewReader("{\"text\": \"Hi!\"}"),
+	})
+	b.Context = context.WithValue(b.Context, PathParameterKey, map[string]string{
+		"id": "test", // not a number -> zero
+	})
+	err := b.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 type TargetOfResponseMapper struct {
 	ID     int    `json:"id"`
 	Offset int    `json:"offset"`
