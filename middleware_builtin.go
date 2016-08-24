@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/favclip/golidator"
 	"golang.org/x/net/context"
 )
 
@@ -63,7 +64,7 @@ func (he *httpError) Error() string {
 func newBadRequestf(format string, a ...interface{}) *httpError {
 	return &httpError{
 		Code:    http.StatusBadRequest,
-		Message: fmt.Sprintf(format, a),
+		Message: fmt.Sprintf(format, a...),
 	}
 }
 
@@ -275,4 +276,80 @@ func (b *Bubble) writeErrorObject(err error) error {
 	b.W.WriteHeader(he.StatusCode())
 	b.W.Write(resp)
 	return nil
+}
+
+var _ HTTPErrorResponse = &validateError{}
+
+// Validator is an interface of request object validation.
+type Validator interface {
+	Validate(v interface{}) error
+}
+
+type validateError struct {
+	Code   int   `json:"code"`
+	Origin error `json:"-"`
+}
+
+func (ve *validateError) StatusCode() int {
+	if her, ok := ve.Origin.(HTTPErrorResponse); ok {
+		return her.StatusCode()
+	}
+	return ve.Code
+}
+
+func (ve *validateError) ErrorMessage() interface{} {
+	if her, ok := ve.Origin.(HTTPErrorResponse); ok {
+		return her.ErrorMessage()
+	}
+	return ve.Origin
+}
+
+func (ve *validateError) Error() string {
+	if ve.Origin != nil {
+		return ve.Origin.Error()
+	}
+	return fmt.Sprintf("status code %d: %v", ve.StatusCode(), ve.ErrorMessage())
+}
+
+// RequestValidator checks request object validity.
+func RequestValidator(validator Validator) MiddlewareFunc {
+	if validator == nil {
+		v := &golidator.Validator{}
+		v.SetTag("ucon")
+		v.SetValidationFunc("req", golidator.ReqFactory(nil))
+		v.SetValidationFunc("d", golidator.DefaultFactory(nil))
+		v.SetValidationFunc("min", golidator.MinFactory(nil))
+		v.SetValidationFunc("max", golidator.MaxFactory(nil))
+		v.SetValidationFunc("minLen", golidator.MinLenFactory(nil))
+		v.SetValidationFunc("maxLen", golidator.MaxLenFactory(nil))
+		v.SetValidationFunc("email", golidator.EmailFactory(nil))
+		v.SetValidationFunc("enum", golidator.EnumFactory(nil))
+		validator = v
+	}
+
+	return func(b *Bubble) error {
+		for idx, argT := range b.ArgumentTypes {
+			if argT == httpReqType {
+				continue
+			} else if argT == httpRespType {
+				continue
+			} else if argT == netContextType {
+				continue
+			}
+
+			rv := b.Arguments[idx]
+			if rv.IsNil() || !rv.IsValid() {
+				continue
+			}
+			v := rv.Interface()
+			err := validator.Validate(v)
+			if herr, ok := err.(HTTPErrorResponse); ok && herr != nil {
+				return err
+			} else if err != nil {
+				return &validateError{Code: http.StatusBadRequest, Origin: err}
+			}
+		}
+
+		return b.Next()
+	}
 }

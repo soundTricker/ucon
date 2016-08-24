@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/favclip/golidator"
 	"golang.org/x/net/context"
 )
 
@@ -245,5 +247,60 @@ func TestResponseMapperWithCustomErrorType(t *testing.T) {
 	body := rr.Body.String()
 	if body != "{\"text\":\"Hello from custom error\"}" {
 		t.Errorf("unexpected: %v", body)
+	}
+}
+
+type TargetRequestValidate struct {
+	ID int `ucon:"min=3"`
+}
+
+func TestRequestValidator_valid(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, RequestValidator(nil), func(req *TargetRequestValidate) {
+	}, nil)
+	b.Arguments[0] = reflect.ValueOf(&TargetRequestValidate{ID: 3})
+
+	err := b.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := b.W.(*httptest.ResponseRecorder)
+	if rr.Code != 200 {
+		t.Errorf("unexpected: %v", rr.Code)
+	}
+}
+
+func TestRequestValidator_customValidator(t *testing.T) {
+	validator := &golidator.Validator{}
+	validator.SetTag("ucon")
+	validator.SetValidationFunc("min", golidator.MinFactory(&golidator.MinErrorOption{
+		MinError: func(f reflect.StructField, actual, min interface{}) error {
+			return newBadRequestf("custom error. unexpected %v", actual)
+		},
+	}))
+
+	b, _ := MakeMiddlewareTestBed(t, RequestValidator(validator), func(req *TargetRequestValidate) {
+	}, nil)
+	b.Arguments[0] = reflect.ValueOf(&TargetRequestValidate{ID: 2})
+
+	err := b.Next()
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	msg := err.(*httpError).Message.(string)
+	if msg != "custom error. unexpected 2" {
+		t.Errorf("unexpected: %v", msg)
+	}
+}
+
+func TestRequestValidator_invalidRequest(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, RequestValidator(nil), func(req *TargetRequestValidate) {
+	}, nil)
+	b.Arguments[0] = reflect.ValueOf(&TargetRequestValidate{ID: 2})
+
+	err := b.Next()
+	if err == nil {
+		t.Errorf("unexpected: %v", err)
 	}
 }
