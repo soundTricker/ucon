@@ -3,6 +3,7 @@ package ucon
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -302,5 +303,101 @@ func TestRequestValidator_invalidRequest(t *testing.T) {
 	err := b.Next()
 	if err == nil {
 		t.Errorf("unexpected: %v", err)
+	}
+}
+
+func TestCSRFProtect_safeMethodWithoutCSRFToken(t *testing.T) {
+	mw, err := CSRFProtect(&CSRFOption{
+		Salt: []byte("foobar"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := MakeMiddlewareTestBed(t, mw, func() {}, &BubbleTestOption{
+		Method: "GET",
+		URL:    "/api/tmp",
+	})
+
+	err = b.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cookie := b.W.Header().Get("Set-Cookie")
+	if cookie == "" {
+		t.Errorf("unexpected: %s", cookie)
+	}
+	if !strings.HasPrefix(cookie, "XSRF-TOKEN=") {
+		t.Errorf("unexpected: %s", cookie)
+	}
+}
+
+func TestCSRFProtect_safeMethodWithCSRFToken(t *testing.T) {
+	mw, err := CSRFProtect(&CSRFOption{
+		Salt: []byte("foobar"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := MakeMiddlewareTestBed(t, mw, func() {}, &BubbleTestOption{
+		Method: "GET",
+		URL:    "/api/tmp",
+	})
+	csrfToken := "cd4c742bb3f6ba24e0cedc1bae73e25f255b4d0a88f923c82f89f91131bed6c6"
+	b.R.Header.Add("Cookie", fmt.Sprintf("XSRF-TOKEN=%s", csrfToken))
+
+	err = b.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cookie := b.W.Header().Get("Set-Cookie")
+	if cookie != "" {
+		t.Errorf("unexpected: %s", cookie)
+	}
+}
+
+func TestCSRFProtect_validCSRFToken(t *testing.T) {
+	mw, err := CSRFProtect(&CSRFOption{
+		Salt: []byte("foobar"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := MakeMiddlewareTestBed(t, mw, func() {}, &BubbleTestOption{
+		Method: "POST",
+		URL:    "/api/tmp",
+	})
+	csrfToken := "cd4c742bb3f6ba24e0cedc1bae73e25f255b4d0a88f923c82f89f91131bed6c6"
+	b.R.Header.Add("Cookie", fmt.Sprintf("XSRF-TOKEN=%s", csrfToken))
+	b.R.Header.Add("X-XSRF-TOKEN", csrfToken)
+
+	err = b.Next()
+	if err != nil {
+		t.Fatal(err.(*httpError).Message)
+	}
+}
+
+func TestCSRFProtect_invalidCSRFToken(t *testing.T) {
+	mw, err := CSRFProtect(&CSRFOption{
+		Salt: []byte("foobar"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := MakeMiddlewareTestBed(t, mw, func() {}, &BubbleTestOption{
+		Method: "POST",
+		URL:    "/api/tmp",
+	})
+	csrfToken := "cd4c742bb3f6ba24e0cedc1bae73e25f255b4d0a88f923c82f89f91131bed6c6"
+	b.R.Header.Add("Cookie", fmt.Sprintf("XSRF-TOKEN=%s", csrfToken))
+	// b.R.Header.Add("X-XSRF-TOKEN", csrfToken)
+
+	err = b.Next()
+	if err == nil {
+		t.Fatal("unexpected")
+	}
+	if v := err.(HTTPErrorResponse).StatusCode(); v != http.StatusBadRequest {
+		t.Fatalf("unexpected: %v", v)
 	}
 }

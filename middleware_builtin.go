@@ -1,6 +1,8 @@
 package ucon
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +29,9 @@ var ErrInvalidPathParameterType = errors.New("path parameter type should be map[
 
 // ErrPathParameterFieldMissing is the path parameter mapping error.
 var ErrPathParameterFieldMissing = errors.New("can't find path parameter in struct")
+
+// ErrCSRFBadToken is the error returns CSRF token verify failure.
+var ErrCSRFBadToken = newBadRequestf("invalid CSRF token")
 
 // HTTPErrorResponse is a response to represent http errors.
 type HTTPErrorResponse interface {
@@ -352,4 +357,97 @@ func RequestValidator(validator Validator) MiddlewareFunc {
 
 		return b.Next()
 	}
+}
+
+// CSRFOption is options for CSRFProtect.
+type CSRFOption struct {
+	Salt              []byte
+	SafeMethods       []string
+	CookieName        string
+	RequestHeaderName string
+	GenerateCookie    func(r *http.Request) (*http.Cookie, error)
+}
+
+// CSRFProtect is a CSRF (Cross Site Request Forgery) prevention middleware.
+func CSRFProtect(opts *CSRFOption) (MiddlewareFunc, error) {
+	// default target is AngularJS
+	// https://angular.io/docs/ts/latest/guide/security.html#!#http
+
+	if opts == nil {
+		return nil, errors.New("opts is required")
+	}
+	if len(opts.SafeMethods) == 0 {
+		// from https://tools.ietf.org/html/rfc7231#section-4.2.2
+		// Idempotent Methods
+		opts.SafeMethods = []string{"GET", "HEAD", "OPTIONS", "TRACE"}
+	}
+	if opts.CookieName == "" {
+		opts.CookieName = "XSRF-TOKEN"
+	}
+	if opts.RequestHeaderName == "" {
+		opts.RequestHeaderName = "X-XSRF-TOKEN"
+	}
+	if opts.GenerateCookie == nil {
+		if len(opts.Salt) == 0 {
+			return nil, errors.New("opts.Salt is required")
+		}
+		opts.GenerateCookie = func(r *http.Request) (*http.Cookie, error) {
+			b := make([]byte, 32)
+			_, err := rand.Read(b)
+			if err != nil {
+				return nil, err
+			}
+			b = append(opts.Salt, b...)
+
+			cookie := &http.Cookie{
+				Name:     opts.CookieName,
+				Value:    fmt.Sprintf("%x", sha256.Sum256([]byte(b))),
+				MaxAge:   0,
+				HttpOnly: false,
+				Secure:   true,
+			}
+
+			return cookie, nil
+		}
+	}
+
+	contains := func(strs []string, target string) bool {
+		for _, str := range strs {
+			if str == target {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	middleware := func(b *Bubble) error {
+		if contains(opts.SafeMethods, b.R.Method) {
+			_, err := b.R.Cookie(opts.CookieName)
+			if err == http.ErrNoCookie {
+				cookie, err := opts.GenerateCookie(b.R)
+				if err != nil {
+					return err
+				}
+				http.SetCookie(b.W, cookie)
+			} else if err != nil {
+				return err
+			}
+		} else {
+			csrfTokenRequest := b.R.Header.Get(opts.RequestHeaderName)
+			csrfTokenCookie, _ := b.R.Cookie(opts.CookieName)
+			if csrfTokenRequest == "" || csrfTokenCookie == nil {
+				return ErrCSRFBadToken
+			}
+		}
+
+		err := b.Next()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return middleware, nil
 }
