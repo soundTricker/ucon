@@ -401,3 +401,26 @@ func TestCSRFProtect_invalidCSRFToken(t *testing.T) {
 		t.Fatalf("unexpected: %v", v)
 	}
 }
+
+func TestCSRFProtect_mismatchCSRFToken(t *testing.T) {
+	mw, err := CSRFProtect(&CSRFOption{
+		Salt: []byte("foobar"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := MakeMiddlewareTestBed(t, mw, func() {}, &BubbleTestOption{
+		Method: "POST",
+		URL:    "/api/tmp",
+	})
+	b.R.Header.Add("Cookie", "XSRF-TOKEN=123")
+	b.R.Header.Add("X-XSRF-TOKEN", "abc")
+
+	err = b.Next()
+	if err == nil {
+		t.Fatal("unexpected")
+	}
+	if v := err.(HTTPErrorResponse).StatusCode(); v != http.StatusBadRequest {
+		t.Fatalf("unexpected: %v", v)
+	}
+}
