@@ -439,6 +439,9 @@ func CSRFProtect(opts *CSRFOption) (MiddlewareFunc, error) {
 			if csrfTokenRequest == "" || csrfTokenCookie == nil {
 				return ErrCSRFBadToken
 			}
+			if csrfTokenRequest != csrfTokenCookie.Value {
+				return ErrCSRFBadToken
+			}
 		}
 
 		err := b.Next()
