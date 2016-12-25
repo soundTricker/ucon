@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/favclip/ucon"
@@ -42,6 +43,10 @@ type TypeSchema struct {
 	RefName  string
 	Schema   *Schema
 	AllowRef bool
+}
+
+type fieldInfo struct {
+	Enum []interface{}
 }
 
 // Plugin is a holder for all of plugin settings.
@@ -252,6 +257,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 					Required: true,
 					Type:     pw.ParameterType(),
 					Format:   pw.ParameterFormat(),
+					Enum:     pw.ParameterEnum(),
 				})
 
 				continue
@@ -266,6 +272,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 						Required: true,
 						Type:     pw.ParameterType(),
 						Format:   pw.ParameterFormat(),
+						Enum:     pw.ParameterEnum(),
 					})
 					continue outer
 				}
@@ -282,7 +289,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 				}
 				if param.Type == "array" {
 					param.Items = &Items{}
-					tsc, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type, pw.StructField.Tag)
+					tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type, pw.StructField.Tag)
 					if err != nil {
 						return nil, err
 					}
@@ -293,6 +300,9 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 					}
 					param.Items.Type = tsc.Schema.Items.Type
 					param.Items.Format = tsc.Schema.Items.Format
+					param.Items.Enum = fiInfo.Enum
+				} else {
+					param.Enum = pw.ParameterEnum()
 				}
 
 				op.Parameters = append(op.Parameters, param)
@@ -320,7 +330,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	}
 
 	if reqType != nil && bodyParameter != nil {
-		tsc, err := p.reflectTypeToTypeSchemaContainer(reqType, "")
+		tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(reqType, "")
 		if err != nil {
 			return nil, err
 		}
@@ -332,13 +342,14 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 			} else if tsc.AllowRef {
 				return nil, errors.New("Name is required")
 			} else {
-				bodyParameter.Schema = tsc.Schema
+				bodyParameter.Schema = tsc.Schema.ShallowCopy()
+				bodyParameter.Schema.Enum = fiInfo.Enum
 			}
 		}
 	}
 
 	if respType != nil {
-		tsc, err := p.reflectTypeToTypeSchemaContainer(respType, "")
+		tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(respType, "")
 		if err != nil {
 			return nil, err
 		}
@@ -351,7 +362,8 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 			} else if tsc.AllowRef {
 				return nil, errors.New("Name is required")
 			} else {
-				resp.Schema = tsc.Schema
+				resp.Schema = tsc.Schema.ShallowCopy()
+				resp.Schema.Enum = fiInfo.Enum
 			}
 		}
 	}
@@ -362,7 +374,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 		} else if errType == uconHTTPErrorType {
 			// pass
 		} else {
-			tsc, err := p.reflectTypeToTypeSchemaContainer(errType, "")
+			tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(errType, "")
 			if err != nil {
 				return nil, err
 			}
@@ -379,7 +391,8 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 				} else if tsc.AllowRef {
 					return nil, errors.New("Name is required")
 				} else {
-					resp.Schema = tsc.Schema
+					resp.Schema = tsc.Schema.ShallowCopy()
+					resp.Schema.Enum = fiInfo.Enum
 				}
 
 			}
@@ -389,13 +402,16 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	return op, nil
 }
 
-func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect.StructTag) (*TypeSchema, error) {
+func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect.StructTag) (*TypeSchema, *fieldInfo, error) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
 
+	schema := &Schema{}
+	schema.Type, schema.Format, schema.Enum = reflectTypeAndFormatToSwaggerTypeString(refT, tag)
+
 	if v, ok := p.typeSchemaMapper[refT]; ok {
-		return v, nil
+		return v, &fieldInfo{Enum: schema.Enum}, nil
 	}
 
 	defName := refT.Name()
@@ -403,13 +419,12 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect
 		defName = p.options.DefinitionNameModifier(refT, defName)
 	}
 
-	schema := &Schema{}
-
 	allowRef := false
 	if defName != "" && refT.PkgPath() != "" {
 		// reject builtin-type, aka int, bool, string
 		allowRef = true
 	}
+
 	ts := &TypeSchema{
 		RefName:  defName,
 		Schema:   schema,
@@ -417,9 +432,8 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect
 	}
 	p.typeSchemaMapper[refT] = ts
 
-	schema.Type, schema.Format = reflectTypeAndFormatToSwaggerTypeString(refT, tag)
 	if schema.Type == "" {
-		return nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
+		return nil, nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
 	} else if schema.Type == "object" || schema.Type == "array" {
 		switch refT.Kind() {
 		case reflect.Struct:
@@ -452,7 +466,7 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect
 						name = sf.Name
 					}
 
-					tsc, err := p.reflectTypeToTypeSchemaContainer(sf.Type, sf.Tag)
+					tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(sf.Type, sf.Tag)
 					if err != nil {
 						return err
 					}
@@ -467,28 +481,30 @@ func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect
 					} else if tsc.AllowRef {
 						return errors.New("Name is required")
 					} else {
-						schema.Properties[name] = tsc.Schema
+						schema.Properties[name] = tsc.Schema.ShallowCopy()
+						schema.Properties[name].Enum = fiInfo.Enum
 					}
 				}
 				return nil
 			}
 			err := process(refT)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		case reflect.Slice, reflect.Array:
-			tsc, err := p.reflectTypeToTypeSchemaContainer(refT.Elem(), "")
+			tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(refT.Elem(), "")
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if tsc.AllowRef && tsc.RefName != "" {
 				schema.Items = &Schema{
 					Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
 				}
 			} else if tsc.AllowRef {
-				return nil, errors.New("Name is required")
+				return nil, nil, errors.New("Name is required")
 			} else {
-				schema.Items = tsc.Schema
+				schema.Items = tsc.Schema.ShallowCopy()
+				schema.Items.Enum = fiInfo.Enum
 			}
 		}
 	}
@@ -555,11 +571,12 @@ func (p *Plugin) AddTag(tag *Tag) *Tag {
 	return tag
 }
 
-func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.StructTag) (t, f string) {
+func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.StructTag) (t, f string, enum []interface{}) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
 	emitAsString := ucon.NewTagJSON(tag).HasString()
+	enumAsString := NewTagSwagger(tag).Enum()
 
 	switch refT.Kind() {
 	case reflect.Struct:
@@ -568,32 +585,93 @@ func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.Stru
 		t = "array"
 	case reflect.Bool:
 		t = "boolean"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 		t = "integer"
 		f = "int32"
-	case reflect.Int64, reflect.Uint64:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseInt(enumStr, 0, 32)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, int32(v))
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		t = "integer"
+		f = "int32"
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseUint(enumStr, 0, 32)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, uint32(v))
+		}
+	case reflect.Int64:
 		t = "integer"
 		f = "int64"
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseInt(enumStr, 0, 64)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, v)
+		}
+	case reflect.Uint64:
+		t = "integer"
+		f = "int64"
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseUint(enumStr, 0, 64)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, v)
+		}
 	case reflect.Float32:
 		t = "number"
 		f = "float"
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseFloat(enumStr, 32)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, float32(v))
+		}
 	case reflect.Float64:
 		t = "number"
 		f = "double"
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseFloat(enumStr, 64)
+			if err != nil {
+				// TODO error handling
+				panic(err)
+			}
+			enum = append(enum, v)
+		}
 	case reflect.String:
 		t = "string"
+		for _, enumStr := range enumAsString {
+			enum = append(enum, enumStr)
+		}
 	default:
 		t = ""
 	}
 
 	if emitAsString {
 		t = "string"
+		enum = nil
+		for _, enumStr := range enumAsString {
+			enum = append(enum, enumStr)
+		}
 	}
 	return
 }
 
 func (pw *parameterWrapper) ParameterType() string {
-	t, _ := reflectTypeAndFormatToSwaggerTypeString(pw.StructField.Type, pw.StructField.Tag)
+	t, _, _ := reflectTypeAndFormatToSwaggerTypeString(pw.StructField.Type, pw.StructField.Tag)
 	return t
 }
 
@@ -610,6 +688,15 @@ func (pw *parameterWrapper) ParameterFormat() string {
 	default:
 		return ""
 	}
+}
+
+func (pw *parameterWrapper) ParameterEnum() []interface{} {
+	enumStrs := pw.Enum()
+	vs := make([]interface{}, 0, len(enumStrs))
+	for _, str := range enumStrs {
+		vs = append(vs, str)
+	}
+	return vs
 }
 
 func (pw *parameterWrapper) InPath() bool {
@@ -639,7 +726,13 @@ func (pw *parameterWrapper) Name() string {
 }
 
 func (pw *parameterWrapper) Required() bool {
-	return NewTagSwagger(pw.StructField.Tag).Required()
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.Required()
+}
+
+func (pw *parameterWrapper) Enum() []string {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.Enum()
 }
 
 func (pw *parameterWrapper) Private() bool {

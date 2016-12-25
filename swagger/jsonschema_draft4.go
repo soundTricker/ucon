@@ -32,3 +32,37 @@ type Schema struct {
 	ExternalDocs *ExternalDocumentation `json:"externalDocs,omitempty"`
 	Example      interface{}            `json:"example,omitempty"`
 }
+
+// ShallowCopy returns a clone of *Schema.
+func (schema *Schema) ShallowCopy() *Schema {
+	return &Schema{
+		Ref:                  schema.Ref,
+		Format:               schema.Format,
+		Title:                schema.Title,
+		Description:          schema.Description,
+		Default:              schema.Default,
+		Maximum:              schema.Maximum,
+		ExclusiveMaximum:     schema.ExclusiveMaximum,
+		Minimum:              schema.Minimum,
+		ExclusiveMinimum:     schema.ExclusiveMinimum,
+		MaxLength:            schema.MaxLength,
+		MinLength:            schema.MinLength,
+		Pattern:              schema.Pattern,
+		MaxItems:             schema.MaxItems,
+		MinItems:             schema.MinItems,
+		UniqueItems:          schema.UniqueItems,
+		MaxProperties:        schema.MaxProperties,
+		MinProperties:        schema.MinProperties,
+		Required:             schema.Required,
+		Enum:                 schema.Enum,
+		Type:                 schema.Type,
+		Items:                schema.Items,
+		AllOf:                schema.AllOf,
+		Properties:           schema.Properties,
+		AdditionalProperties: schema.AdditionalProperties,
+		Discriminator:        schema.Discriminator,
+		ReadOnly:             schema.ReadOnly,
+		ExternalDocs:         schema.ExternalDocs,
+		Example:              schema.Example,
+	}
+}

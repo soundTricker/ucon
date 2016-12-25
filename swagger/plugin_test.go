@@ -1,6 +1,7 @@
 package swagger
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -234,7 +235,7 @@ func TestPluginReflectTypeToTypeSchemaContainerWithSelfRecursion(t *testing.T) {
 	target := &SelfRecursion{}
 
 	p := NewPlugin(nil)
-	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
+	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
 
 	if err != nil {
 		t.Fatal(err)
@@ -266,7 +267,7 @@ func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
 	target := &HasSlice{}
 
 	p := NewPlugin(nil)
-	tsc, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
+	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
 
 	if err != nil {
 		t.Fatal(err)
@@ -303,4 +304,130 @@ func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
 	} else if v.Items.Type != "integer" {
 		t.Errorf("unexpected: %v in Strings", v.Items)
 	}
+}
+
+type HasEnumValue struct {
+	Int32        int32   `swagger:",enum=1|0|-2147483648|2147483647"`
+	Uint32       uint32  `swagger:",enum=0|4294967295"`
+	Int64        int64   `swagger:",enum=-9223372036854775808|0|9223372036854775807"`
+	Uint64       uint64  `swagger:",enum=0|18446744073709551615"`
+	Int64String  int64   `json:",string" swagger:",enum=-9223372036854775808|0|9223372036854775807"`
+	Uint64String uint64  `json:",string" swagger:",enum=0|18446744073709551615"`
+	Float32      float32 `swagger:",enum=-1.25|0|1.25"`
+	Float64      float64 `swagger:",enum=-1.25|0|1.25"`
+	String       string  `swagger:",enum=foo|bar|buzz"`
+}
+
+func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
+	target := &HasEnumValue{}
+
+	p := NewPlugin(nil)
+	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tsc.RefName != "HasEnumValue" {
+		t.Errorf("unexpected: %v", tsc.RefName)
+	}
+
+	if tsc.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", tsc.Schema.Type)
+	}
+
+	if v := tsc.Schema.Properties["Int32"]; v == nil {
+		t.Errorf("unexpected: %v in Int32", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Int32", v)
+	} else if v.Format != "int32" {
+		t.Errorf("unexpected: %v in Int32", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{int32(1), int32(0), int32(-2147483648), int32(2147483647)}) {
+		t.Errorf("unexpected: %v in Int32", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Uint32"]; v == nil {
+		t.Errorf("unexpected: %v in Uint32", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Uint32", v)
+	} else if v.Format != "int32" {
+		t.Errorf("unexpected: %v in Uint32", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{uint32(0), uint32(4294967295)}) {
+		t.Errorf("unexpected: %v in Uint32", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Int64"]; v == nil {
+		t.Errorf("unexpected: %v in Int64", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Int64", v)
+	} else if v.Format != "int64" {
+		t.Errorf("unexpected: %v in Int64", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{int64(-9223372036854775808), int64(0), int64(9223372036854775807)}) {
+		t.Errorf("unexpected: %v in Int64", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Uint64"]; v == nil {
+		t.Errorf("unexpected: %v in Uint64", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Uint64", v)
+	} else if v.Format != "int64" {
+		t.Errorf("unexpected: %v in Uint64", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{uint64(0), uint64(18446744073709551615)}) {
+		t.Errorf("unexpected: %v in Uint64", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Int64String"]; v == nil {
+		t.Errorf("unexpected: %v in Int64String", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Int64String", v)
+	} else if v.Format != "int64" {
+		t.Errorf("unexpected: %v in Int64String", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{"-9223372036854775808", "0", "9223372036854775807"}) {
+		t.Errorf("unexpected: %v in Int64String", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Uint64String"]; v == nil {
+		t.Errorf("unexpected: %v in Uint64String", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Uint64String", v)
+	} else if v.Format != "int64" {
+		t.Errorf("unexpected: %v in Uint64String", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{"0", "18446744073709551615"}) {
+		t.Errorf("unexpected: %v in Uint64String", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Float32"]; v == nil {
+		t.Errorf("unexpected: %v in Float32", v)
+	} else if v.Type != "number" {
+		t.Errorf("unexpected: %v in Float32", v)
+	} else if v.Format != "float" {
+		t.Errorf("unexpected: %v in Float32", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{float32(-1.25), float32(0), float32(1.25)}) {
+		t.Errorf("unexpected: %v in Float32", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["Float64"]; v == nil {
+		t.Errorf("unexpected: %v in Float64", v)
+	} else if v.Type != "number" {
+		t.Errorf("unexpected: %v in Float64", v)
+	} else if v.Format != "double" {
+		t.Errorf("unexpected: %v in Float64", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{float64(-1.25), float64(0), float64(1.25)}) {
+		t.Errorf("unexpected: %v in Float64", v.Enum)
+	}
+
+	if v := tsc.Schema.Properties["String"]; v == nil {
+		t.Errorf("unexpected: %v in String", v)
+	} else if v.Type != "string" {
+		t.Errorf("unexpected: %v in String", v)
+	} else if !reflect.DeepEqual(v.Enum, []interface{}{"foo", "bar", "buzz"}) {
+		t.Errorf("unexpected: %v in String", v.Enum)
+	}
+
+	jsonBody, err := json.MarshalIndent(tsc, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf(string(jsonBody))
 }

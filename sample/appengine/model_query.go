@@ -26,7 +26,12 @@ type TodoQueryProperty struct {
 
 // NewTodoQueryBuilder create new TodoQueryBuilder.
 func NewTodoQueryBuilder() *TodoQueryBuilder {
-	q := datastore.NewQuery("Todo")
+	return NewTodoQueryBuilderWithKind("Todo")
+}
+
+// NewTodoQueryBuilderWithKind create new TodoQueryBuilder with specific kind.
+func NewTodoQueryBuilderWithKind(kind string) *TodoQueryBuilder {
+	q := datastore.NewQuery(kind)
 	bldr := &TodoQueryBuilder{q: q}
 	bldr.ID = &TodoQueryProperty{
 		bldr: bldr,
