@@ -64,7 +64,7 @@ type IntIDRequest struct {
 // +jwg
 type Todo struct {
 	ID        int64  `json:",string"`
-	Text      string `swagger:",req"`
+	Text      string ``
 	Done      bool
 	CreatedAt time.Time
 }
