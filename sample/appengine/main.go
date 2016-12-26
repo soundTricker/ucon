@@ -1,4 +1,4 @@
-//go:generate jwg -output model_json.go .
+//go:generate jwg -output model_json.go -transcripttag swagger .
 //go:generate qbg -output model_query.go .
 
 package example_appengine
