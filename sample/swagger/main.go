@@ -19,6 +19,7 @@ func main() {
 	var _ ucon.HTTPErrorResponse = &HttpError{}
 
 	ucon.Orthodox()
+	ucon.Middleware(swagger.RequestValidator())
 
 	swPlugin := swagger.NewPlugin(&swagger.Options{
 		Object: &swagger.Object{

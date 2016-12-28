@@ -18,6 +18,7 @@ func init() {
 
 	ucon.Middleware(UseAppengineContext)
 	ucon.Orthodox()
+	ucon.Middleware(swagger.RequestValidator())
 
 	swPlugin := swagger.NewPlugin(&swagger.Options{
 		Object: &swagger.Object{
