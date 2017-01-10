@@ -43,7 +43,7 @@ func (hc *handlerContainerImpl) Value(key interface{}) interface{} {
 	return nil
 }
 
-func TestPluginProcessHandler(t *testing.T) {
+func TestSwaggerObjectConstructorProcessHandler(t *testing.T) {
 	p := NewPlugin(nil)
 
 	rd := &ucon.RouteDefinition{
@@ -56,24 +56,26 @@ func TestPluginProcessHandler(t *testing.T) {
 		},
 	}
 
-	err := p.processHandler(rd)
+	err := p.constructor.processHandler(rd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	p.swagger.Info = &Info{
+	swObj := p.constructor.object
+
+	swObj.Info = &Info{
 		Title:   "test",
 		Version: "test",
 	}
-	err = p.swagger.finish()
+	err = swObj.finish()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if v := len(p.swagger.Paths); v != 1 {
+	if v := len(swObj.Paths); v != 1 {
 		t.Fatalf("unexpected: %v", v)
 	}
-	if v, ok := p.swagger.Paths["/api/test/{id}"]; !ok {
+	if v, ok := swObj.Paths["/api/test/{id}"]; !ok {
 		t.Errorf("unexpected: %v", ok)
 	} else if v.Get == nil {
 		t.Errorf("unexpected: %v", v.Get)
@@ -128,11 +130,14 @@ func TestPluginProcessHandler(t *testing.T) {
 		}
 	}
 
-	if v := len(p.swagger.Definitions); v != 2 {
-		t.Fatalf("unexpected: %v", v)
+	if v := len(swObj.Definitions); v != 2 {
+		for k := range swObj.Definitions {
+			t.Log(k)
+		}
+		t.Fatalf("unexpected: %v, ", v)
 	}
 
-	if v, ok := p.swagger.Definitions["Resp"]; !ok {
+	if v, ok := swObj.Definitions["Resp"]; !ok {
 		t.Errorf("unexpected: %v", ok)
 	} else if v.Type != "object" {
 		t.Errorf("unexpected: %v", v.Type)
@@ -148,7 +153,7 @@ func TestPluginProcessHandler(t *testing.T) {
 		t.Errorf("unexpected: %v", v3.Type)
 	}
 
-	if v, ok := p.swagger.Definitions["RespSub"]; !ok {
+	if v, ok := swObj.Definitions["RespSub"]; !ok {
 		t.Errorf("unexpected: %v", ok)
 	} else if v.Type != "object" {
 		t.Errorf("unexpected: %v", v.Type)
@@ -169,7 +174,7 @@ type Noop struct {
 	// 0 field!
 }
 
-func TestPluginProcessHandlerWithNoopStruct(t *testing.T) {
+func TestSwaggerObjectConstructorProcessHandler_withNoopStruct(t *testing.T) {
 	p := NewPlugin(nil)
 
 	rd := &ucon.RouteDefinition{
@@ -182,25 +187,27 @@ func TestPluginProcessHandlerWithNoopStruct(t *testing.T) {
 		},
 	}
 
-	err := p.processHandler(rd)
+	err := p.constructor.processHandler(rd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if v := len(p.swagger.Paths); v != 1 {
+	swObj := p.constructor.object
+
+	if v := len(swObj.Paths); v != 1 {
 		t.Fatalf("unexpected: %v", v)
 	}
 
-	if v := len(p.swagger.Definitions); v != 0 {
+	if v := len(swObj.Definitions); v != 0 {
 		t.Fatalf("unexpected: %v", v)
 	}
 
-	if v, ok := p.swagger.Definitions["Noop"]; ok {
+	if v, ok := swObj.Definitions["Noop"]; ok {
 		t.Errorf("unexpected: %v", v)
 	}
 }
 
-func TestPluginProcessHandlerWithWildcardMethod(t *testing.T) {
+func TestSwaggerObjectConstructorProcessHandler_withWildcardMethod(t *testing.T) {
 	p := NewPlugin(nil)
 
 	rd := &ucon.RouteDefinition{
@@ -213,17 +220,67 @@ func TestPluginProcessHandlerWithWildcardMethod(t *testing.T) {
 		},
 	}
 
-	err := p.processHandler(rd)
+	err := p.constructor.processHandler(rd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if v := len(p.swagger.Paths); v != 0 {
+	swObj := p.constructor.object
+
+	if v := len(swObj.Paths); v != 0 {
 		t.Fatalf("unexpected: %v", v)
 	}
 
-	if v := len(p.swagger.Definitions); v != 0 {
+	if v := len(swObj.Definitions); v != 0 {
 		t.Fatalf("unexpected: %v", v)
+	}
+}
+
+type RecursiveReqJSON struct {
+	List2 []*RecursiveReqJSON
+}
+
+type RecursiveReqJSONWrapper struct {
+	List1 []*RecursiveReqJSON
+}
+
+func TestSwaggerObjectConstructorProcessHandler_withRecursiveType(t *testing.T) {
+	p := NewPlugin(nil)
+
+	rd := &ucon.RouteDefinition{
+		Method:       "GET",
+		PathTemplate: ucon.ParsePathTemplate("/api/test"),
+		HandlerContainer: &handlerContainerImpl{
+			handler: func(c context.Context, _ *RecursiveReqJSONWrapper) error {
+				return nil
+			},
+		},
+	}
+
+	err := p.constructor.processHandler(rd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	swObj := p.constructor.object
+
+	if v := len(swObj.Paths); v != 1 {
+		t.Errorf("unexpected: %v", v)
+	}
+
+	if v := len(swObj.Definitions); v != 2 {
+		t.Errorf("unexpected: %v", v)
+	}
+
+	if v, ok := swObj.Definitions["RecursiveReqJSON"]; !ok {
+		t.Errorf("unexpected: %v", v)
+	}
+
+	if v := swObj.Definitions["RecursiveReqJSONWrapper"].Properties["List1"]; v.Type != "array" || v.Items == nil {
+		t.Errorf("unexpected: %#v", v)
+	}
+	if v := swObj.Definitions["RecursiveReqJSON"].Properties["List2"]; v.Type != "array" || v.Items == nil {
+		t.Errorf("unexpected: %#v", v)
 	}
 }
 
@@ -231,25 +288,26 @@ type SelfRecursion struct {
 	Self *SelfRecursion
 }
 
-func TestPluginReflectTypeToTypeSchemaContainerWithSelfRecursion(t *testing.T) {
-	target := &SelfRecursion{}
-
+func TestSwaggerObjectConstructorExtractTypeSchema_withSelfRecursion(t *testing.T) {
 	p := NewPlugin(nil)
-	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
-
+	ts, err := p.constructor.extractTypeSchema(reflect.TypeOf(&SelfRecursion{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.constructor.execFinisher()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tsc.RefName != "SelfRecursion" {
-		t.Errorf("unexpected: %v", tsc.RefName)
+	if ts.RefName != "SelfRecursion" {
+		t.Errorf("unexpected: %v", ts.RefName)
 	}
 
-	if tsc.Schema.Type != "object" {
-		t.Errorf("unexpected: %v", tsc.Schema.Type)
+	if ts.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", ts.Schema.Type)
 	}
-	if tsc.Schema.Properties["Self"] == nil {
-		t.Errorf("unexpected: %v in Self", tsc.Schema.Properties["Self"])
+	if ts.Schema.Properties["Self"] == nil {
+		t.Errorf("unexpected: %v in Self", ts.Schema.Properties["Self"])
 	}
 }
 
@@ -263,25 +321,26 @@ type HasSliceEmbed struct {
 	Numbers []int
 }
 
-func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
-	target := &HasSlice{}
-
+func TestSwaggerObjectConstructorExtractTypeSchema_withSliceFields(t *testing.T) {
 	p := NewPlugin(nil)
-	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
-
+	ts, err := p.constructor.extractTypeSchema(reflect.TypeOf(&HasSlice{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.constructor.execFinisher()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tsc.RefName != "HasSlice" {
-		t.Errorf("unexpected: %v", tsc.RefName)
+	if ts.RefName != "HasSlice" {
+		t.Errorf("unexpected: %v", ts.RefName)
 	}
 
-	if tsc.Schema.Type != "object" {
-		t.Errorf("unexpected: %v", tsc.Schema.Type)
+	if ts.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", ts.Schema.Type)
 	}
 
-	if v := tsc.Schema.Properties["Strings"]; v == nil {
+	if v := ts.Schema.Properties["Strings"]; v == nil {
 		t.Errorf("unexpected: %v in Strings", v)
 	} else if v.Type != "array" {
 		t.Errorf("unexpected: %v in Strings", v)
@@ -289,7 +348,7 @@ func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
 		t.Errorf("unexpected: %v in Strings", v.Items)
 	}
 
-	if v := tsc.Schema.Properties["Times"]; v == nil {
+	if v := ts.Schema.Properties["Times"]; v == nil {
 		t.Errorf("unexpected: %v in Times", v)
 	} else if v.Type != "array" {
 		t.Errorf("unexpected: %v in Times", v)
@@ -297,7 +356,7 @@ func TestPluginReflectTypeToSchemaWithSliceFields(t *testing.T) {
 		t.Errorf("unexpected: %v in Strings", v.Items)
 	}
 
-	if v := tsc.Schema.Properties["Numbers"]; v == nil {
+	if v := ts.Schema.Properties["Numbers"]; v == nil {
 		t.Errorf("unexpected: %v in Numbers", v)
 	} else if v.Type != "array" {
 		t.Errorf("unexpected: %v in Numbers", v)
@@ -318,25 +377,26 @@ type HasEnumValue struct {
 	String       string  `swagger:",enum=foo|bar|buzz"`
 }
 
-func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
-	target := &HasEnumValue{}
-
+func TestSwaggerObjectConstructorExtractTypeSchema_withEnumValue(t *testing.T) {
 	p := NewPlugin(nil)
-	tsc, _, err := p.reflectTypeToTypeSchemaContainer(reflect.TypeOf(target), "")
-
+	ts, err := p.constructor.extractTypeSchema(reflect.TypeOf(&HasEnumValue{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.constructor.execFinisher()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tsc.RefName != "HasEnumValue" {
-		t.Errorf("unexpected: %v", tsc.RefName)
+	if ts.RefName != "HasEnumValue" {
+		t.Errorf("unexpected: %v", ts.RefName)
 	}
 
-	if tsc.Schema.Type != "object" {
-		t.Errorf("unexpected: %v", tsc.Schema.Type)
+	if ts.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", ts.Schema.Type)
 	}
 
-	if v := tsc.Schema.Properties["Int32"]; v == nil {
+	if v := ts.Schema.Properties["Int32"]; v == nil {
 		t.Errorf("unexpected: %v in Int32", v)
 	} else if v.Type != "integer" {
 		t.Errorf("unexpected: %v in Int32", v)
@@ -346,7 +406,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Int32", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Uint32"]; v == nil {
+	if v := ts.Schema.Properties["Uint32"]; v == nil {
 		t.Errorf("unexpected: %v in Uint32", v)
 	} else if v.Type != "integer" {
 		t.Errorf("unexpected: %v in Uint32", v)
@@ -356,7 +416,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Uint32", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Int64"]; v == nil {
+	if v := ts.Schema.Properties["Int64"]; v == nil {
 		t.Errorf("unexpected: %v in Int64", v)
 	} else if v.Type != "integer" {
 		t.Errorf("unexpected: %v in Int64", v)
@@ -366,7 +426,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Int64", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Uint64"]; v == nil {
+	if v := ts.Schema.Properties["Uint64"]; v == nil {
 		t.Errorf("unexpected: %v in Uint64", v)
 	} else if v.Type != "integer" {
 		t.Errorf("unexpected: %v in Uint64", v)
@@ -376,9 +436,9 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Uint64", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Int64String"]; v == nil {
+	if v := ts.Schema.Properties["Int64String"]; v == nil {
 		t.Errorf("unexpected: %v in Int64String", v)
-	} else if v.Type != "integer" {
+	} else if v.Type != "string" {
 		t.Errorf("unexpected: %v in Int64String", v)
 	} else if v.Format != "int64" {
 		t.Errorf("unexpected: %v in Int64String", v)
@@ -386,9 +446,9 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Int64String", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Uint64String"]; v == nil {
+	if v := ts.Schema.Properties["Uint64String"]; v == nil {
 		t.Errorf("unexpected: %v in Uint64String", v)
-	} else if v.Type != "integer" {
+	} else if v.Type != "string" {
 		t.Errorf("unexpected: %v in Uint64String", v)
 	} else if v.Format != "int64" {
 		t.Errorf("unexpected: %v in Uint64String", v)
@@ -396,7 +456,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Uint64String", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Float32"]; v == nil {
+	if v := ts.Schema.Properties["Float32"]; v == nil {
 		t.Errorf("unexpected: %v in Float32", v)
 	} else if v.Type != "number" {
 		t.Errorf("unexpected: %v in Float32", v)
@@ -406,7 +466,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Float32", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["Float64"]; v == nil {
+	if v := ts.Schema.Properties["Float64"]; v == nil {
 		t.Errorf("unexpected: %v in Float64", v)
 	} else if v.Type != "number" {
 		t.Errorf("unexpected: %v in Float64", v)
@@ -416,7 +476,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in Float64", v.Enum)
 	}
 
-	if v := tsc.Schema.Properties["String"]; v == nil {
+	if v := ts.Schema.Properties["String"]; v == nil {
 		t.Errorf("unexpected: %v in String", v)
 	} else if v.Type != "string" {
 		t.Errorf("unexpected: %v in String", v)
@@ -424,7 +484,7 @@ func TestPluginReflectTypeToSchemaWithEnumValue(t *testing.T) {
 		t.Errorf("unexpected: %v in String", v.Enum)
 	}
 
-	jsonBody, err := json.MarshalIndent(tsc, "", "  ")
+	jsonBody, err := json.MarshalIndent(ts, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}

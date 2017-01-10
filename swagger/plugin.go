@@ -37,6 +37,53 @@ var DefaultTypeSchemaMapper = map[reflect.Type]*TypeSchema{
 	},
 }
 
+// 備忘
+// swaggerのJSONを組み上げる上で、色々なTypeを走査せねばならない。
+// トップレベルはもちろんTypeからなんだが、Typeの構成要素はTypeだけではない。
+// 1つのTypeは built-in type だったり struct する。
+// structの場合、要素は 名前 + Type + タグ であり、Typeだけから1つのパーツがなっているわけではない。
+
+// FieldInfo has a information for struct field.
+// It contains Type information and Tag information.
+type FieldInfo struct {
+	Base reflect.StructField
+
+	TypeSchema   *TypeSchema
+	EmitAsString bool
+	Enum         []interface{} // from tag, e.g. swagger:",enum=ok|ng"
+}
+
+// Anonymous is an embedded field.
+func (fiInfo *FieldInfo) Anonymous() bool {
+	return fiInfo.Base.Anonymous
+}
+
+// Type returns field type.
+func (fiInfo *FieldInfo) Type() reflect.Type {
+	return fiInfo.Base.Type
+}
+
+// Ignored is an ignored field.
+func (fiInfo *FieldInfo) Ignored() bool {
+	tagJSON := ucon.NewTagJSON(fiInfo.Base.Tag)
+	if tagJSON.Ignored() {
+		return true
+	}
+
+	return false
+}
+
+// Name returns field name on swagger.
+func (fiInfo *FieldInfo) Name() string {
+	tagJSON := ucon.NewTagJSON(fiInfo.Base.Tag)
+	name := tagJSON.Name()
+	if name == "" {
+		name = fiInfo.Base.Name
+	}
+
+	return name
+}
+
 // TypeSchema is a container of swagger schema and its attributes.
 // RefName must be given if AllowRef is true.
 type TypeSchema struct {
@@ -45,16 +92,29 @@ type TypeSchema struct {
 	AllowRef bool
 }
 
-type fieldInfo struct {
-	Enum []interface{}
+// SwaggerSchema returns schema that is can use is swagger.json.
+func (ts *TypeSchema) SwaggerSchema() (*Schema, error) {
+	if ts.AllowRef && ts.RefName != "" {
+		return &Schema{Ref: fmt.Sprintf("#/definitions/%s", ts.RefName)}, nil
+	} else if ts.AllowRef {
+		return nil, errors.New("Name is required")
+	}
+
+	return ts.Schema.ShallowCopy(), nil
 }
 
 // Plugin is a holder for all of plugin settings.
 type Plugin struct {
-	options             *Options
-	swagger             *Object
-	typeSchemaMapper    map[reflect.Type]*TypeSchema
-	typeParameterMapper map[reflect.Type]map[string]*parameterWrapper
+	constructor *swaggerObjectConstructor
+	options     *Options
+}
+
+type swaggerObjectConstructor struct {
+	plugin           *Plugin
+	object           *Object
+	typeSchemaMapper map[reflect.Type]*TypeSchema
+
+	finisher []func() error
 }
 
 type parameterWrapper struct {
@@ -80,86 +140,92 @@ func NewPlugin(opts *Options) *Plugin {
 	if opts == nil {
 		opts = &Options{}
 	}
-	plugin := &Plugin{
-		options:          opts,
-		swagger:          opts.Object,
+
+	so := opts.Object
+
+	if so == nil {
+		so = &Object{}
+	}
+	if so.Paths == nil {
+		so.Paths = make(Paths, 0)
+	}
+	if so.Definitions == nil {
+		so.Definitions = make(Definitions, 0)
+	}
+
+	p := &Plugin{options: opts}
+	soConstructor := &swaggerObjectConstructor{
+		plugin:           p,
+		object:           so,
 		typeSchemaMapper: make(map[reflect.Type]*TypeSchema),
 	}
 	for k, v := range DefaultTypeSchemaMapper {
-		plugin.typeSchemaMapper[k] = v
+		soConstructor.typeSchemaMapper[k] = v
 	}
-	var _ ucon.HandlersScannerPlugin = plugin
+	p.constructor = soConstructor
 
-	return plugin
+	return p
 }
 
 // HandlersScannerProcess executes scanning all registered handlers to serve swagger.json.
 func (p *Plugin) HandlersScannerProcess(m *ucon.ServeMux, rds []*ucon.RouteDefinition) error {
+	soConstructor := p.constructor
+
 	// construct swagger.json
 	for _, rd := range rds {
-		err := p.processHandler(rd)
+		err := soConstructor.processHandler(rd)
 		if err != nil {
 			return err
 		}
 	}
 
-	err := p.swagger.finish()
+	err := soConstructor.object.finish()
 	if err != nil {
 		return err
 	}
 
 	// supply swagger.json endpoint
 	m.HandleFunc("GET", "/api/swagger.json", func(w http.ResponseWriter, r *http.Request) *Object {
-		return p.swagger
+		return soConstructor.object
 	})
 
 	return nil
 }
 
-func (p *Plugin) processHandler(rd *ucon.RouteDefinition) error {
-	if p.swagger == nil {
-		p.swagger = &Object{}
-	}
-	if p.swagger.Paths == nil {
-		p.swagger.Paths = make(Paths, 0)
-	}
-	if p.swagger.Definitions == nil {
-		p.swagger.Definitions = make(Definitions, 0)
-	}
-
-	item := p.swagger.Paths[rd.PathTemplate.PathTemplate]
+func (soConstructor *swaggerObjectConstructor) processHandler(rd *ucon.RouteDefinition) error {
+	item := soConstructor.object.Paths[rd.PathTemplate.PathTemplate]
 	if item == nil {
 		item = &PathItem{}
 	}
 
-	var putOperation func(op *Operation)
+	var setOperation func(op *Operation)
 	switch rd.Method {
 	case "GET":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Get = op
 		}
 	case "PUT":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Put = op
 		}
 	case "POST":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Post = op
 		}
 	case "DELETE":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Delete = op
 		}
 	case "OPTIONS":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Options = op
 		}
 	case "HEAD":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Head = op
 		}
 	case "PATCH":
-		putOperation = func(op *Operation) {
+		setOperation = func(op *Operation) {
 			item.Patch = op
 		}
 	case "*":
@@ -169,26 +235,28 @@ func (p *Plugin) processHandler(rd *ucon.RouteDefinition) error {
 		return fmt.Errorf("unknown method: %s", rd.Method)
 	}
 
-	op, err := p.extractHandlerInfo(rd)
-	if err != nil {
+	if op, err := soConstructor.extractSwaggerOperation(rd); err != nil {
+		soConstructor.finisher = nil
 		return err
-	}
-	if op != nil {
-		p.swagger.Paths[rd.PathTemplate.PathTemplate] = item
+	} else if op != nil {
+		setOperation(op)
+		soConstructor.object.Paths[rd.PathTemplate.PathTemplate] = item
 
-		putOperation(op)
+		err := soConstructor.execFinisher()
+		if err != nil {
+			return err
+		}
 
-		for _, tsc := range p.typeSchemaMapper {
-			if !tsc.AllowRef {
+		for _, ts := range soConstructor.typeSchemaMapper {
+			if !ts.AllowRef {
 				continue
 			}
-			if tsc.RefName == "" {
+			if ts.RefName == "" {
 				return errors.New("Name is required")
 			}
 
-			_, ok := p.swagger.Definitions[tsc.RefName]
-			if !ok {
-				p.swagger.Definitions[tsc.RefName] = tsc.Schema
+			if _, ok := soConstructor.object.Definitions[ts.RefName]; !ok {
+				soConstructor.object.Definitions[ts.RefName] = ts.Schema
 			}
 		}
 	}
@@ -196,7 +264,7 @@ func (p *Plugin) processHandler(rd *ucon.RouteDefinition) error {
 	return nil
 }
 
-func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error) {
+func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.RouteDefinition) (*Operation, error) {
 	var op *Operation
 	op, ok := rd.HandlerContainer.Value(swaggerOperationKey).(*Operation)
 	if !ok || op == nil {
@@ -241,7 +309,7 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	// parameter
 	var bodyParameter *Parameter
 	if reqType != nil {
-		paramMap, err := p.reflectTypeToParameterMapper(reqType)
+		paramMap, err := soConstructor.extractParameterMapperMap(reqType)
 		if err != nil {
 			return nil, err
 		}
@@ -288,19 +356,28 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 					Format:   pw.ParameterFormat(),
 				}
 				if param.Type == "array" {
-					param.Items = &Items{}
-					tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(pw.StructField.Type, pw.StructField.Tag)
+					fiInfo, err := soConstructor.extractFieldInfo(pw.StructField)
 					if err != nil {
 						return nil, err
 					}
-					// NOTE(laco) Parameter.Items doesn't allow `$ref`.
-					// Parameter.Items.Type is required.
-					if tsc.Schema == nil || tsc.Schema.Items == nil || tsc.Schema.Items.Type == "" {
-						return nil, errors.New("Items is required")
-					}
-					param.Items.Type = tsc.Schema.Items.Type
-					param.Items.Format = tsc.Schema.Items.Format
-					param.Items.Enum = fiInfo.Enum
+					soConstructor.addFinisher(func() error {
+						ts := fiInfo.TypeSchema
+
+						// NOTE(laco) Parameter.Items doesn't allow `$ref`.
+						// Parameter.Items.Type is required.
+						if ts.Schema == nil || ts.Schema.Items == nil || ts.Schema.Items.Type == "" {
+							return errors.New("Items is required")
+						}
+						param.Items = &Items{}
+						param.Items.Type = ts.Schema.Items.Type
+						param.Items.Format = ts.Schema.Items.Format
+						if fiInfo.EmitAsString {
+							param.Items.Type = "string"
+						}
+						param.Items.Enum = fiInfo.Enum
+
+						return nil
+					})
 				} else {
 					param.Enum = pw.ParameterEnum()
 				}
@@ -330,42 +407,40 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 	}
 
 	if reqType != nil && bodyParameter != nil {
-		tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(reqType, "")
+		ts, err := soConstructor.extractTypeSchema(reqType)
 		if err != nil {
 			return nil, err
 		}
 		if bodyParameter != nil {
-			if tsc.AllowRef && tsc.RefName != "" {
-				bodyParameter.Schema = &Schema{
-					Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
+			soConstructor.addFinisher(func() error {
+				schema, err := ts.SwaggerSchema()
+				if err != nil {
+					return err
 				}
-			} else if tsc.AllowRef {
-				return nil, errors.New("Name is required")
-			} else {
-				bodyParameter.Schema = tsc.Schema.ShallowCopy()
-				bodyParameter.Schema.Enum = fiInfo.Enum
-			}
+				bodyParameter.Schema = schema
+
+				return nil
+			})
 		}
 	}
 
 	if respType != nil {
-		tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(respType, "")
+		ts, err := soConstructor.extractTypeSchema(respType)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, resp := range op.Responses {
-			if tsc.AllowRef && tsc.RefName != "" {
-				resp.Schema = &Schema{
-					Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
+		soConstructor.addFinisher(func() error {
+			for _, resp := range op.Responses {
+				schema, err := ts.SwaggerSchema()
+				if err != nil {
+					return err
 				}
-			} else if tsc.AllowRef {
-				return nil, errors.New("Name is required")
-			} else {
-				resp.Schema = tsc.Schema.ShallowCopy()
-				resp.Schema.Enum = fiInfo.Enum
+				resp.Schema = schema
 			}
-		}
+
+			return nil
+		})
 	}
 
 	if errType != nil {
@@ -374,149 +449,232 @@ func (p *Plugin) extractHandlerInfo(rd *ucon.RouteDefinition) (*Operation, error
 		} else if errType == uconHTTPErrorType {
 			// pass
 		} else {
-			tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(errType, "")
+			ts, err := soConstructor.extractTypeSchema(errType)
 			if err != nil {
 				return nil, err
 			}
 
-			if op.Responses["default"] == nil {
-				resp := &Response{
-					Description: "???", // TODO
-				}
-				op.Responses["default"] = resp
-				if tsc.AllowRef && tsc.RefName != "" {
-					resp.Schema = &Schema{
-						Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
+			soConstructor.addFinisher(func() error {
+				if op.Responses["default"] == nil {
+					resp := &Response{
+						Description: "???", // TODO
 					}
-				} else if tsc.AllowRef {
-					return nil, errors.New("Name is required")
-				} else {
-					resp.Schema = tsc.Schema.ShallowCopy()
-					resp.Schema.Enum = fiInfo.Enum
+					op.Responses["default"] = resp
+
+					schema, err := ts.SwaggerSchema()
+					if err != nil {
+						return err
+					}
+					resp.Schema = schema
 				}
 
-			}
+				return nil
+			})
 		}
 	}
 
 	return op, nil
 }
 
-func (p *Plugin) reflectTypeToTypeSchemaContainer(refT reflect.Type, tag reflect.StructTag) (*TypeSchema, *fieldInfo, error) {
+func (soConstructor *swaggerObjectConstructor) extractFieldInfo(sf reflect.StructField) (*FieldInfo, error) {
+	fiInfo := &FieldInfo{Base: sf}
+
+	if fiInfo.Ignored() {
+		return fiInfo, nil
+	}
+
+	ts, err := soConstructor.extractTypeSchema(sf.Type)
+	if err != nil {
+		return nil, err
+	}
+	fiInfo.TypeSchema = ts
+
+	fiInfo.EmitAsString = ucon.NewTagJSON(sf.Tag).HasString()
+	enumAsString := NewTagSwagger(sf.Tag).Enum()
+	var enum []interface{}
+	switch sf.Type.Kind() {
+	case reflect.Struct:
+	case reflect.Slice, reflect.Array:
+	case reflect.Bool:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseInt(enumStr, 0, 32)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, int32(v))
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseUint(enumStr, 0, 32)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, uint32(v))
+		}
+	case reflect.Int64:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseInt(enumStr, 0, 64)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, v)
+		}
+	case reflect.Uint64:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseUint(enumStr, 0, 64)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, v)
+		}
+	case reflect.Float32:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseFloat(enumStr, 32)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, float32(v))
+		}
+	case reflect.Float64:
+		for _, enumStr := range enumAsString {
+			v, err := strconv.ParseFloat(enumStr, 64)
+			if err != nil {
+				return nil, err
+			}
+			enum = append(enum, v)
+		}
+	case reflect.String:
+		for _, enumStr := range enumAsString {
+			enum = append(enum, enumStr)
+		}
+	default:
+	}
+
+	if fiInfo.EmitAsString {
+		// value format compatibility check was done in above code
+		enum = nil
+		for _, enumStr := range enumAsString {
+			enum = append(enum, enumStr)
+		}
+	}
+	fiInfo.Enum = enum
+
+	return fiInfo, nil
+}
+
+func (soConstructor *swaggerObjectConstructor) extractTypeSchema(refT reflect.Type) (*TypeSchema, error) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
 
-	schema := &Schema{}
-	schema.Type, schema.Format, schema.Enum = reflectTypeAndFormatToSwaggerTypeString(refT, tag)
-
-	if v, ok := p.typeSchemaMapper[refT]; ok {
-		return v, &fieldInfo{Enum: schema.Enum}, nil
+	if ts, ok := soConstructor.typeSchemaMapper[refT]; ok {
+		return ts, nil
 	}
+
+	ts := &TypeSchema{}
+	soConstructor.typeSchemaMapper[refT] = ts
+
+	schema := &Schema{}
+	schema.Type, schema.Format = extractSwaggerTypeAndFormat(refT)
+
+	ts.Schema = schema
 
 	defName := refT.Name()
-	if p.options.DefinitionNameModifier != nil {
-		defName = p.options.DefinitionNameModifier(refT, defName)
+	if soConstructor.plugin.options.DefinitionNameModifier != nil {
+		defName = soConstructor.plugin.options.DefinitionNameModifier(refT, defName)
 	}
+	ts.RefName = defName
 
-	allowRef := false
 	if defName != "" && refT.PkgPath() != "" {
 		// reject builtin-type, aka int, bool, string
-		allowRef = true
+		ts.AllowRef = true
 	}
 
-	ts := &TypeSchema{
-		RefName:  defName,
-		Schema:   schema,
-		AllowRef: allowRef,
-	}
-	p.typeSchemaMapper[refT] = ts
+	switch schema.Type {
+	case "object":
+		var process func(refT reflect.Type) error
+		process = func(refT reflect.Type) error {
+			if refT.Kind() == reflect.Ptr {
+				refT = refT.Elem()
+			}
+			if refT.Kind() != reflect.Struct {
+				return nil
+			}
+			for i, numField := 0, refT.NumField(); i < numField; i++ {
+				sf := refT.Field(i)
 
-	if schema.Type == "" {
-		return nil, nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
-	} else if schema.Type == "object" || schema.Type == "array" {
-		switch refT.Kind() {
-		case reflect.Struct:
-			var process func(refT reflect.Type) error
-			process = func(refT reflect.Type) error {
-				if refT.Kind() == reflect.Ptr {
-					refT = refT.Elem()
+				fiInfo, err := soConstructor.extractFieldInfo(sf)
+				if err != nil {
+					return err
 				}
-				if refT.Kind() != reflect.Struct {
-					return nil
+
+				if fiInfo.Ignored() {
+					continue
 				}
-				for i, numField := 0, refT.NumField(); i < numField; i++ {
-					sf := refT.Field(i)
 
-					tagJSON := ucon.NewTagJSON(sf.Tag)
-					if tagJSON.Ignored() {
-						continue
-					}
-
-					if sf.Anonymous {
-						err := process(sf.Type) // it just means same struct.
-						if err != nil {
-							return err
-						}
-						continue
-					}
-
-					name := tagJSON.Name()
-					if name == "" {
-						name = sf.Name
-					}
-
-					tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(sf.Type, sf.Tag)
+				if fiInfo.Anonymous() {
+					// it just means same struct.
+					err := process(sf.Type)
 					if err != nil {
 						return err
 					}
+					continue
+				}
 
-					if schema.Properties == nil {
-						schema.Properties = make(map[string]*Schema, 0)
+				soConstructor.addFinisher(func() error {
+					fiSchema, err := fiInfo.TypeSchema.SwaggerSchema()
+					if err != nil {
+						return err
 					}
-					if tsc.AllowRef && tsc.RefName != "" {
-						schema.Properties[name] = &Schema{
-							Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
-						}
-					} else if tsc.AllowRef {
-						return errors.New("Name is required")
-					} else {
-						schema.Properties[name] = tsc.Schema.ShallowCopy()
-						schema.Properties[name].Enum = fiInfo.Enum
+					if fiInfo.EmitAsString {
+						fiSchema.Type = "string"
 					}
+					fiSchema.Enum = fiInfo.Enum
+					schema.Properties[fiInfo.Name()] = fiSchema
+
+					return nil
+				})
+			}
+			return nil
+		}
+
+		if schema.Properties == nil {
+			schema.Properties = make(map[string]*Schema, 0)
+		}
+		err := process(refT)
+		if err != nil {
+			return nil, err
+		}
+
+	case "array":
+		{
+			var ts *TypeSchema
+			var err error
+			soConstructor.addFinisher(func() error {
+				itemSchema, err := ts.SwaggerSchema()
+				if err != nil {
+					return err
 				}
+				schema.Items = itemSchema
+
 				return nil
-			}
-			err := process(refT)
+			})
+			ts, err = soConstructor.extractTypeSchema(refT.Elem())
 			if err != nil {
-				return nil, nil, err
-			}
-		case reflect.Slice, reflect.Array:
-			tsc, fiInfo, err := p.reflectTypeToTypeSchemaContainer(refT.Elem(), "")
-			if err != nil {
-				return nil, nil, err
-			}
-			if tsc.AllowRef && tsc.RefName != "" {
-				schema.Items = &Schema{
-					Ref: fmt.Sprintf("#/definitions/%s", tsc.RefName),
-				}
-			} else if tsc.AllowRef {
-				return nil, nil, errors.New("Name is required")
-			} else {
-				schema.Items = tsc.Schema.ShallowCopy()
-				schema.Items.Enum = fiInfo.Enum
+				return nil, err
 			}
 		}
+
+	case "":
+		return nil, fmt.Errorf("unknown schema type: %s", refT.Kind().String())
+	default:
 	}
 
-	return p.reflectTypeToTypeSchemaContainer(refT, tag)
+	return ts, nil
 }
 
-func (p *Plugin) reflectTypeToParameterMapper(refT reflect.Type) (map[string]*parameterWrapper, error) {
-	if m, ok := p.typeParameterMapper[refT]; ok {
-		return m, nil
-	}
-
+func (soConstructor *swaggerObjectConstructor) extractParameterMapperMap(refT reflect.Type) (map[string]*parameterWrapper, error) {
 	parameterMap := make(map[string]*parameterWrapper, 0)
 
 	var process func(refT reflect.Type) error
@@ -561,23 +719,29 @@ func (p *Plugin) reflectTypeToParameterMapper(refT reflect.Type) (map[string]*pa
 	return parameterMap, nil
 }
 
-// AddTag adds the tag to top-level tags definition.
-func (p *Plugin) AddTag(tag *Tag) *Tag {
-	if p.options.Object == nil {
-		p.options.Object = &Object{}
-	}
-	p.options.Object.Tags = append(p.options.Object.Tags, tag)
-
-	return tag
+func (soConstructor *swaggerObjectConstructor) addFinisher(f func() error) {
+	soConstructor.finisher = append(soConstructor.finisher, f)
 }
 
-func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.StructTag) (t, f string, enum []interface{}) {
+func (soConstructor *swaggerObjectConstructor) execFinisher() error {
+	for _, f := range soConstructor.finisher {
+		err := f()
+		if err != nil {
+			return err
+		}
+	}
+	soConstructor.finisher = nil
+
+	return nil
+}
+
+func extractSwaggerTypeAndFormat(refT reflect.Type) (string, string) {
 	if refT.Kind() == reflect.Ptr {
 		refT = refT.Elem()
 	}
-	emitAsString := ucon.NewTagJSON(tag).HasString()
-	enumAsString := NewTagSwagger(tag).Enum()
 
+	var t string
+	var f string
 	switch refT.Kind() {
 	case reflect.Struct:
 		t = "object"
@@ -585,93 +749,40 @@ func reflectTypeAndFormatToSwaggerTypeString(refT reflect.Type, tag reflect.Stru
 		t = "array"
 	case reflect.Bool:
 		t = "boolean"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		t = "integer"
 		f = "int32"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseInt(enumStr, 0, 32)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, int32(v))
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		t = "integer"
-		f = "int32"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseUint(enumStr, 0, 32)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, uint32(v))
-		}
-	case reflect.Int64:
+	case reflect.Int64, reflect.Uint64:
 		t = "integer"
 		f = "int64"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseInt(enumStr, 0, 64)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, v)
-		}
-	case reflect.Uint64:
-		t = "integer"
-		f = "int64"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseUint(enumStr, 0, 64)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, v)
-		}
 	case reflect.Float32:
 		t = "number"
 		f = "float"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseFloat(enumStr, 32)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, float32(v))
-		}
 	case reflect.Float64:
 		t = "number"
 		f = "double"
-		for _, enumStr := range enumAsString {
-			v, err := strconv.ParseFloat(enumStr, 64)
-			if err != nil {
-				// TODO error handling
-				panic(err)
-			}
-			enum = append(enum, v)
-		}
 	case reflect.String:
 		t = "string"
-		for _, enumStr := range enumAsString {
-			enum = append(enum, enumStr)
-		}
 	default:
 		t = ""
 	}
 
-	if emitAsString {
-		t = "string"
-		enum = nil
-		for _, enumStr := range enumAsString {
-			enum = append(enum, enumStr)
-		}
-	}
-	return
+	return t, f
+}
+
+// AddTag adds the tag to top-level tags definition.
+func (p *Plugin) AddTag(tag *Tag) *Tag {
+	p.constructor.object.Tags = append(p.constructor.object.Tags, tag)
+
+	return tag
 }
 
 func (pw *parameterWrapper) ParameterType() string {
-	t, _, _ := reflectTypeAndFormatToSwaggerTypeString(pw.StructField.Type, pw.StructField.Tag)
+	if ucon.NewTagJSON(pw.StructField.Tag).HasString() {
+		return "string"
+	}
+	t, _ := extractSwaggerTypeAndFormat(pw.StructField.Type)
 	return t
 }
 
