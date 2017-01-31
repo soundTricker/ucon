@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/favclip/golidator"
 	"golang.org/x/net/context"
 )
 
@@ -268,30 +267,6 @@ func TestRequestValidator_valid(t *testing.T) {
 	rr := b.W.(*httptest.ResponseRecorder)
 	if rr.Code != 200 {
 		t.Errorf("unexpected: %v", rr.Code)
-	}
-}
-
-func TestRequestValidator_customValidator(t *testing.T) {
-	validator := &golidator.Validator{}
-	validator.SetTag("ucon")
-	validator.SetValidationFunc("min", golidator.MinFactory(&golidator.MinErrorOption{
-		MinError: func(f reflect.StructField, actual, min interface{}) error {
-			return newBadRequestf("custom error. unexpected %v", actual)
-		},
-	}))
-
-	b, _ := MakeMiddlewareTestBed(t, RequestValidator(validator), func(req *TargetRequestValidate) {
-	}, nil)
-	b.Arguments[0] = reflect.ValueOf(&TargetRequestValidate{ID: 2})
-
-	err := b.Next()
-	if err == nil {
-		t.Fatal(err)
-	}
-
-	msg := err.(*httpError).Message.(string)
-	if msg != "custom error. unexpected 2" {
-		t.Errorf("unexpected: %v", msg)
 	}
 }
 

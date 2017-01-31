@@ -319,16 +319,8 @@ func (ve *validateError) Error() string {
 // RequestValidator checks request object validity.
 func RequestValidator(validator Validator) MiddlewareFunc {
 	if validator == nil {
-		v := &golidator.Validator{}
+		v := golidator.NewValidator()
 		v.SetTag("ucon")
-		v.SetValidationFunc("req", golidator.ReqFactory(nil))
-		v.SetValidationFunc("d", golidator.DefaultFactory(nil))
-		v.SetValidationFunc("min", golidator.MinFactory(nil))
-		v.SetValidationFunc("max", golidator.MaxFactory(nil))
-		v.SetValidationFunc("minLen", golidator.MinLenFactory(nil))
-		v.SetValidationFunc("maxLen", golidator.MaxLenFactory(nil))
-		v.SetValidationFunc("email", golidator.EmailFactory(nil))
-		v.SetValidationFunc("enum", golidator.EnumFactory(nil))
 		validator = v
 	}
 
@@ -350,8 +342,10 @@ func RequestValidator(validator Validator) MiddlewareFunc {
 			err := validator.Validate(v)
 			if herr, ok := err.(HTTPErrorResponse); ok && herr != nil {
 				return err
+			} else if gerr, ok := err.(*golidator.ErrorReport); ok && gerr != nil {
+				return &validateError{Code: http.StatusBadRequest, Origin: gerr}
 			} else if err != nil {
-				return &validateError{Code: http.StatusBadRequest, Origin: err}
+				return err
 			}
 		}
 
