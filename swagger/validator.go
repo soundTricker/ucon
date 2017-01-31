@@ -2,7 +2,6 @@ package swagger
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 
 	"github.com/favclip/golidator"
@@ -48,53 +47,20 @@ func init() {
 	v := &golidator.Validator{}
 	v.SetTag("swagger")
 
-	v.SetValidationFunc("req", golidator.ReqFactory(&golidator.ReqErrorOption{
-		ReqError: func(f reflect.StructField, actual interface{}) error {
-			err := golidator.ReqError(f, actual)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
-	v.SetValidationFunc("d", golidator.DefaultFactory(&golidator.DefaultErrorOption{
-		DefaultError: func(f reflect.StructField) error {
-			err := golidator.DefaultError(f)
-			return &validateError{Code: http.StatusInternalServerError, Origin: err}
-		},
-	}))
-	v.SetValidationFunc("enum", golidator.EnumFactory(&golidator.EnumErrorOption{
-		EnumError: func(f reflect.StructField, actual interface{}, enum []string) error {
-			err := golidator.EnumError(f, actual, enum)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
+	v.SetValidationFunc("req", golidator.ReqValidator)
+	v.SetValidationFunc("d", golidator.DefaultValidator)
+	v.SetValidationFunc("enum", golidator.EnumValidator)
 
 	// TODO emit to swagger.json
-	v.SetValidationFunc("min", golidator.MinFactory(&golidator.MinErrorOption{
-		MinError: func(f reflect.StructField, actual, min interface{}) error {
-			err := golidator.MinError(f, actual, min)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
-	v.SetValidationFunc("max", golidator.MaxFactory(&golidator.MaxErrorOption{
-		MaxError: func(f reflect.StructField, actual, max interface{}) error {
-			err := golidator.MaxError(f, actual, max)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
-	v.SetValidationFunc("minLen", golidator.MinLenFactory(&golidator.MinLenErrorOption{
-		MinLenError: func(f reflect.StructField, actual, min interface{}) error {
-			err := golidator.MinLenError(f, actual, min)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
-	v.SetValidationFunc("maxLen", golidator.MaxLenFactory(&golidator.MaxLenErrorOption{
-		MaxLenError: func(f reflect.StructField, actual, max interface{}) error {
-			err := golidator.MaxLenError(f, actual, max)
-			return &validateError{Code: http.StatusBadRequest, Origin: err}
-		},
-	}))
+	v.SetValidationFunc("min", golidator.MinValidator)
+	v.SetValidationFunc("max", golidator.MaxValidator)
+	v.SetValidationFunc("minLen", golidator.MinLenValidator)
+	v.SetValidationFunc("maxLen", golidator.MaxLenValidator)
 
 	// ignore in=path, in=query pattern
-	v.SetValidationFunc("in", func(t *golidator.Target, param string) error { return nil })
+	v.SetValidationFunc("in", func(param string, v reflect.Value) (golidator.ValidationResult, error) {
+		return golidator.ValidationOK, nil
+	})
 
 	DefaultValidator = v
 }
