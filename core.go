@@ -29,7 +29,7 @@ type ServeMux struct {
 }
 
 // MiddlewareFunc is an adapter to hook middleware processing.
-// Middlrware works with 1 request.
+// Middleware works with 1 request.
 type MiddlewareFunc func(b *Bubble) error
 
 // Middleware can append Middleware to ServeMux.
