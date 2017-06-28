@@ -1,11 +1,10 @@
 package ucon
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 // DefaultMux is the default ServeMux in ucon.

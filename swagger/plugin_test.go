@@ -1,13 +1,13 @@
 package swagger
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/favclip/ucon"
-	"golang.org/x/net/context"
 )
 
 type ReqSwaggerParameter struct {

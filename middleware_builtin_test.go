@@ -1,6 +1,7 @@
 package ucon
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 func TestHttpRWDI(t *testing.T) {

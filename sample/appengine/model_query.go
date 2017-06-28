@@ -88,7 +88,7 @@ func (bldr *TodoQueryBuilder) Start(cur datastore.Cursor) *TodoQueryBuilder {
 	return bldr
 }
 
-// Offset setupto query.
+// Offset setup to query.
 func (bldr *TodoQueryBuilder) Offset(offset int) *TodoQueryBuilder {
 	bldr.q = bldr.q.Offset(offset)
 	if bldr.plugin != nil {

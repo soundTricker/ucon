@@ -1,6 +1,7 @@
 package example_appengine
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/favclip/ucon"
 	"github.com/favclip/ucon/swagger"
 	"github.com/mjibson/goon"
-	"golang.org/x/net/context"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 )

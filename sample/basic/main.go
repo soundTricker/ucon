@@ -3,13 +3,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/favclip/ucon"
-	"golang.org/x/net/context"
 )
 
 func main() {

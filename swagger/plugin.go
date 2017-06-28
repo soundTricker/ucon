@@ -1,6 +1,7 @@
 package swagger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/favclip/ucon"
-	"golang.org/x/net/context"
 )
 
 // interface compatibility check

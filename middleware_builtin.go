@@ -1,6 +1,7 @@
 package ucon
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/favclip/golidator"
-	"golang.org/x/net/context"
 )
 
 var httpReqType = reflect.TypeOf((*http.Request)(nil))

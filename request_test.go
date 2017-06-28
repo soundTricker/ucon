@@ -1,11 +1,10 @@
 package ucon
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 func noopMiddleware(b *Bubble) error {

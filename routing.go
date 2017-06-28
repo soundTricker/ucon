@@ -1,12 +1,11 @@
 package ucon
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 type methodMatchRate int

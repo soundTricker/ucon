@@ -1,12 +1,11 @@
 package ucon
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
-
-	"golang.org/x/net/context"
 )
 
 // ErrInvalidRequestHandler is the error that Bubble.RequestHandler is not a function.

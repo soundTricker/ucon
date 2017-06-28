@@ -1,13 +1,12 @@
 package ucon
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 // BubbleTestOption is an option for setting a mock request.

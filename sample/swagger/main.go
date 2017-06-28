@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/favclip/ucon"
 	"github.com/favclip/ucon/swagger"
-	"golang.org/x/net/context"
 )
 
 func main() {
