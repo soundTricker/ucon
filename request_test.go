@@ -19,7 +19,7 @@ func TestBubbleInit(t *testing.T) {
 	if v := len(b.ArgumentTypes); v != 1 {
 		t.Errorf("unexpected: %v", v)
 	}
-	if v := b.ArgumentTypes[0]; v != netContextType {
+	if v := b.ArgumentTypes[0]; v != contextType {
 		t.Errorf("unexpected: %v", v)
 	}
 	if v := len(b.Arguments); v != 1 {

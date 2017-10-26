@@ -17,7 +17,7 @@ import (
 
 var httpReqType = reflect.TypeOf((*http.Request)(nil))
 var httpRespType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
-var netContextType = reflect.TypeOf((*context.Context)(nil)).Elem()
+var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var stringParserType = reflect.TypeOf((*StringParser)(nil)).Elem()
 
@@ -82,11 +82,11 @@ type StringParser interface {
 func HTTPRWDI() MiddlewareFunc {
 	return func(b *Bubble) error {
 		for idx, argT := range b.ArgumentTypes {
-			if argT == httpReqType {
+			if httpReqType.AssignableTo(argT) {
 				b.Arguments[idx] = reflect.ValueOf(b.R)
 				continue
 			}
-			if argT == httpRespType {
+			if httpRespType.AssignableTo(argT) {
 				b.Arguments[idx] = reflect.ValueOf(b.W)
 				continue
 			}
@@ -97,10 +97,25 @@ func HTTPRWDI() MiddlewareFunc {
 }
 
 // NetContextDI injects Bubble.Context into the bubble.Arguments.
+// deprecated. use ContextDI instead of NetContextDI.
 func NetContextDI() MiddlewareFunc {
 	return func(b *Bubble) error {
 		for idx, argT := range b.ArgumentTypes {
-			if argT == netContextType {
+			if contextType.AssignableTo(argT) {
+				b.Arguments[idx] = reflect.ValueOf(b.Context)
+				continue
+			}
+		}
+
+		return b.Next()
+	}
+}
+
+// ContextDI injects Bubble.Context into the bubble.Arguments.
+func ContextDI() MiddlewareFunc {
+	return func(b *Bubble) error {
+		for idx, argT := range b.ArgumentTypes {
+			if contextType.AssignableTo(argT) {
 				b.Arguments[idx] = reflect.ValueOf(b.Context)
 				continue
 			}
@@ -326,11 +341,11 @@ func RequestValidator(validator Validator) MiddlewareFunc {
 
 	return func(b *Bubble) error {
 		for idx, argT := range b.ArgumentTypes {
-			if argT == httpReqType {
+			if httpReqType.AssignableTo(argT) {
 				continue
-			} else if argT == httpRespType {
+			} else if httpRespType.AssignableTo(argT) {
 				continue
-			} else if argT == netContextType {
+			} else if contextType.AssignableTo(argT) {
 				continue
 			}
 
