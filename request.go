@@ -24,7 +24,7 @@ type Bubble struct {
 	R              *http.Request
 	W              http.ResponseWriter
 	Context        context.Context
-	RequestHandler interface{}
+	RequestHandler HandlerContainer
 
 	Debug bool
 
