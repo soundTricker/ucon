@@ -11,6 +11,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "swagger-ui": "^2.1.4"
+    "swagger-ui-dist": "^3.4.4"
   }
 }

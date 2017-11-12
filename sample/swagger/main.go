@@ -39,7 +39,7 @@ func main() {
 	ucon.Plugin(swPlugin)
 
 	ucon.HandleFunc("GET", "/swagger-ui/", func(w http.ResponseWriter, r *http.Request) {
-		localPath := "./node_modules/swagger-ui/dist/" + r.URL.Path[len("/swagger-ui/"):]
+		localPath := "./node_modules/swagger-ui-dist/" + r.URL.Path[len("/swagger-ui/"):]
 		http.ServeFile(w, r, localPath)
 	})
 
