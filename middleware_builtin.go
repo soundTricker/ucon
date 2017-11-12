@@ -99,16 +99,7 @@ func HTTPRWDI() MiddlewareFunc {
 // NetContextDI injects Bubble.Context into the bubble.Arguments.
 // deprecated. use ContextDI instead of NetContextDI.
 func NetContextDI() MiddlewareFunc {
-	return func(b *Bubble) error {
-		for idx, argT := range b.ArgumentTypes {
-			if contextType.AssignableTo(argT) {
-				b.Arguments[idx] = reflect.ValueOf(b.Context)
-				continue
-			}
-		}
-
-		return b.Next()
-	}
+	return ContextDI()
 }
 
 // ContextDI injects Bubble.Context into the bubble.Arguments.

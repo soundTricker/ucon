@@ -142,7 +142,7 @@ func (hc *handlerContainerImpl) Handler() interface{} {
 func Orthodox() {
 	DefaultMux.Middleware(ResponseMapper())
 	DefaultMux.Middleware(HTTPRWDI())
-	DefaultMux.Middleware(NetContextDI())
+	DefaultMux.Middleware(ContextDI())
 	DefaultMux.Middleware(RequestObjectMapper())
 }
 

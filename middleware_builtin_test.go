@@ -27,8 +27,8 @@ func TestHttpRWDI(t *testing.T) {
 	}
 }
 
-func TestNetContextDI(t *testing.T) {
-	b, _ := MakeMiddlewareTestBed(t, NetContextDI(), func(c context.Context) {
+func TestContextDI(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, ContextDI(), func(c context.Context) {
 		if c == nil {
 			t.Errorf("unexpected: %v", c)
 		}
