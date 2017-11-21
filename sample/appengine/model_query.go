@@ -58,6 +58,7 @@ func NewTodoQueryBuilderWithKind(kind string) *TodoQueryBuilder {
 		bldr.plugin = plugger.Plugin()
 		bldr.plugin.Init("Todo")
 	}
+
 	return bldr
 }
 
