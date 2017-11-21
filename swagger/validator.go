@@ -20,6 +20,7 @@ type validateError struct {
 }
 
 type validateMessage struct {
+	Type    string `json:"type"`
 	Message string `json:"message"`
 }
 
@@ -28,7 +29,10 @@ func (ve *validateError) StatusCode() int {
 }
 
 func (ve *validateError) ErrorMessage() interface{} {
-	return &validateMessage{Message: ve.Origin.Error()}
+	return &validateMessage{
+		Type:    "https://github.com/favclip/ucon#swagger-validate",
+		Message: ve.Origin.Error(),
+	}
 }
 
 func (ve *validateError) Error() string {
