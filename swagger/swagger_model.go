@@ -297,10 +297,10 @@ type SecurityDefinitions map[string]*SecurityScheme
 
 // SecurityScheme is https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#security-scheme-object
 type SecurityScheme struct {
-	Type             string `json:"type" swagger:",req"`
+	Type             string `json:"type" swagger:",req,enum=basic|apiKey|oauth2"`
 	Description      string `json:"description,omitempty"`
 	Name             string `json:"name" swagger:",req"`
-	In               string `json:"in" swagger:",req,enum=query|header"`
+	In               string `json:"in,omitempty" swagger:",enum=query|header"`
 	Flow             string `json:"flow" swagger:",req"`
 	AuthorizationURL string `json:"authorizationUrl" swagger:",req"`
 	TokenURL         string `json:"tokenUrl" swagger:",req"`
@@ -329,7 +329,91 @@ type Reference struct {
 }
 
 func (o *Object) finish() error {
+	err := checkSecurityDefinitions(o)
+	if err != nil {
+		return err
+	}
 	return checkObject(reflect.ValueOf(o))
+}
+
+func checkSecurityDefinitions(o *Object) error {
+	checkSecReqs := func(secReqs []SecurityRequirement) error {
+		for _, req := range secReqs {
+			for name, oauth2ReqScopes := range req {
+				if o.SecurityDefinitions == nil {
+					return ErrSecurityDefinitionsIsRequired
+				}
+
+				scheme, ok := o.SecurityDefinitions[name]
+				if !ok {
+					return ErrSecurityDefinitionsIsRequired
+				}
+
+				if scheme.Type == "oauth2" {
+					for _, reqScope := range oauth2ReqScopes {
+						_, ok := scheme.Scopes[reqScope]
+						if !ok {
+							return ErrSecuritySettingsAreWrong
+						}
+					}
+				}
+			}
+		}
+
+		return nil
+	}
+
+	err := checkSecReqs(o.Security)
+	if err != nil {
+		return err
+	}
+
+	for _, pathItem := range o.Paths {
+		if pathItem.Get != nil {
+			err = checkSecReqs(pathItem.Get.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Put != nil {
+			err = checkSecReqs(pathItem.Put.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Post != nil {
+			err = checkSecReqs(pathItem.Post.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Delete != nil {
+			err = checkSecReqs(pathItem.Delete.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Options != nil {
+			err = checkSecReqs(pathItem.Options.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Head != nil {
+			err = checkSecReqs(pathItem.Head.Security)
+			if err != nil {
+				return err
+			}
+		}
+		if pathItem.Patch != nil {
+			err = checkSecReqs(pathItem.Patch.Security)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func checkObject(refV reflect.Value) error {
@@ -363,15 +447,15 @@ func checkObject(refV reflect.Value) error {
 				}
 			}
 		case reflect.Interface:
-		// through
+			// through
 		case reflect.String, reflect.Bool:
-		// through
+			// through
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		// through
+			// through
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		// through
+			// through
 		case reflect.Float32, reflect.Float64:
-		// through
+			// through
 		default:
 			fmt.Println(fV)
 			return fmt.Errorf("unsupported kind: %s", fV.Kind().String())

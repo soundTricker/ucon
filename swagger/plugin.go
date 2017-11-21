@@ -17,7 +17,7 @@ var _ ucon.HandlersScannerPlugin = &Plugin{}
 var _ ucon.Context = &HandlerInfo{}
 var _ ucon.HandlerContainer = &HandlerInfo{}
 
-var swaggerOperationKey = &struct{ temp string }{}
+type swaggerOperationKey struct{}
 
 var httpReqType = reflect.TypeOf(&http.Request{})
 var httpRespType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
@@ -266,7 +266,7 @@ func (soConstructor *swaggerObjectConstructor) processHandler(rd *ucon.RouteDefi
 
 func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.RouteDefinition) (*Operation, error) {
 	var op *Operation
-	op, ok := rd.HandlerContainer.Value(swaggerOperationKey).(*Operation)
+	op, ok := rd.HandlerContainer.Value(swaggerOperationKey{}).(*Operation)
 	if !ok || op == nil {
 		op = &Operation{
 			Description: fmt.Sprintf("%s %s", rd.Method, rd.PathTemplate.PathTemplate),
@@ -875,7 +875,7 @@ func (wr *HandlerInfo) Handler() interface{} {
 
 // Value returns the value contained with the key.
 func (wr *HandlerInfo) Value(key interface{}) interface{} {
-	if key == swaggerOperationKey {
+	if key == (swaggerOperationKey{}) {
 		return &wr.Operation
 	}
 	if wr.Context != nil {
