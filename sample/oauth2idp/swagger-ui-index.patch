@@ -1,0 +1,21 @@
+--- node_modules/swagger-ui-dist/index.html	2018-01-06 17:33:30.000000000 +0900
++++ modified/index.html	2018-01-07 20:06:13.000000000 +0900
+@@ -74,7 +74,7 @@
+   
+   // Build a system
+   const ui = SwaggerUIBundle({
+-    url: "http://petstore.swagger.io/v2/swagger.json",
++    url: "/api/swagger.json",
+     dom_id: '#swagger-ui',
+     deepLinking: true,
+     presets: [
+@@ -84,7 +84,8 @@
+     plugins: [
+       SwaggerUIBundle.plugins.DownloadUrl
+     ],
+-    layout: "StandaloneLayout"
++    layout: "StandaloneLayout",
++    oauth2RedirectUrl: "http://localhost:8080/swagger-ui/oauth2-redirect.html"
+   })
+ 
+   window.ui = ui

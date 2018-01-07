@@ -11,9 +11,10 @@ import (
 
 // BubbleTestOption is an option for setting a mock request.
 type BubbleTestOption struct {
-	Method string
-	URL    string
-	Body   io.Reader
+	Method            string
+	URL               string
+	Body              io.Reader
+	MiddlewareContext Context
 }
 
 // MakeMiddlewareTestBed returns a Bubble and ServeMux for handling the request made from the option.
@@ -23,6 +24,9 @@ func MakeMiddlewareTestBed(t *testing.T, middleware MiddlewareFunc, handler inte
 			Method: "GET",
 			URL:    "/api/tmp",
 		}
+	}
+	if opts.MiddlewareContext == nil {
+		opts.MiddlewareContext = background
 	}
 	mux := NewServeMux()
 	mux.Middleware(middleware)
@@ -48,7 +52,7 @@ func MakeMiddlewareTestBed(t *testing.T, middleware MiddlewareFunc, handler inte
 		PathTemplate: ParsePathTemplate(u.Path),
 		HandlerContainer: &handlerContainerImpl{
 			handler: handler,
-			Context: background,
+			Context: opts.MiddlewareContext,
 		},
 	}
 
