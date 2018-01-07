@@ -103,11 +103,11 @@ func (b *Bubble) do() error {
 	}
 	for idx, arg := range b.Arguments {
 		if !arg.IsValid() {
-			fmt.Printf("ArgumentInvalid %d", idx)
+			fmt.Printf("ArgumentInvalid %d\n", idx)
 			return ErrInvalidArgumentValue
 		}
 		if !arg.Type().AssignableTo(hv.Type().In(idx)) {
-			fmt.Printf("TypeMismatch %d, %#v, %#v", idx, b.Arguments[idx], hv.Type().In(idx))
+			fmt.Printf("TypeMismatch %d, %+v, %+v\n", idx, b.Arguments[idx], hv.Type().In(idx))
 			return ErrInvalidArgumentValue
 		}
 	}
