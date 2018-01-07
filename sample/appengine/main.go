@@ -59,6 +59,7 @@ func UseAppengineContext(b *ucon.Bubble) error {
 	} else {
 		b.Context = appengine.WithContext(b.Context, b.R)
 	}
+	b.R = b.R.WithContext(b.Context)
 
 	return b.Next()
 }
