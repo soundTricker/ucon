@@ -1,4 +1,4 @@
-// +build go1.7
+// +build !go1.7
 
 package ucon
 
@@ -8,5 +8,5 @@ import (
 )
 
 func getDefaultContext(r *http.Request) context.Context {
-	return r.Context()
+	return context.Background()
 }
