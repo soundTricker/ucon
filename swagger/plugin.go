@@ -402,6 +402,11 @@ func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.
 				Required: true,
 				Schema:   nil,
 			}
+
+			switch rd.Method {
+			case "GET", "DELETE":
+				bodyParameter.Required = false
+			}
 			op.Parameters = append(op.Parameters, bodyParameter)
 		}
 	}
