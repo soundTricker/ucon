@@ -491,3 +491,47 @@ func TestSwaggerObjectConstructorExtractTypeSchema_withEnumValue(t *testing.T) {
 
 	t.Logf(string(jsonBody))
 }
+
+
+type HasReqValue struct {
+	ReqValue    string `swagger:",req" json:"reqValue"`
+	NotReqValue string `swagger:""`
+}
+
+func TestSwaggerObjectConstructorExtractTypeSchema_withReqValue(t *testing.T) {
+	p := NewPlugin(nil)
+	ts, err := p.constructor.extractTypeSchema(reflect.TypeOf(&HasReqValue{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.constructor.execFinisher()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ts.RefName != "HasReqValue" {
+		t.Errorf("unexpected: %v", ts.RefName)
+	}
+
+	if ts.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", ts.Schema.Type)
+	}
+
+	if len(ts.Schema.Required) != 1 {
+		t.Errorf("unexpected: %v", ts.Schema.Required)
+	}
+
+	for _, v := range ts.Schema.Required {
+		if v != "reqValue" {
+			t.Errorf("unexpected: %v", ts.Schema.Required)
+		}
+	}
+
+
+	jsonBody, err := json.MarshalIndent(ts, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf(string(jsonBody))
+}
