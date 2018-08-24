@@ -635,6 +635,11 @@ func (soConstructor *swaggerObjectConstructor) extractTypeSchema(refT reflect.Ty
 					if fiInfo.EmitAsString {
 						fiSchema.Type = "string"
 					}
+
+					if NewTagSwagger(fiInfo.Base.Tag).Required() {
+						schema.Required = append(schema.Required, fiInfo.Name())
+					}
+
 					fiSchema.Enum = fiInfo.Enum
 					schema.Properties[fiInfo.Name()] = fiSchema
 
