@@ -3,6 +3,7 @@ package swagger
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/favclip/ucon"
@@ -110,6 +111,57 @@ func (swaggerTag TagSwagger) Enum() []string {
 	}
 
 	return nil
+}
+
+func (swaggerTag TagSwagger) getIntValue(tagName string) *int {
+	tag := tagName + "="
+	text := reflect.StructTag(swaggerTag).Get("swagger")
+	texts := strings.Split(text, ",")[1:]
+
+	for _, text := range texts {
+		if strings.HasPrefix(text, tag) {
+			val, err := strconv.Atoi(text[len(tag):])
+			if err == nil {
+				return &val
+			}
+		}
+	}
+
+	return nil
+}
+
+// Minimum returns min value from swagger tag.
+func (swaggerTag TagSwagger) Minimum() *int {
+	return swaggerTag.getIntValue("min")
+}
+
+// Maximum returns max value from swagger tag.
+func (swaggerTag TagSwagger) Maximum() *int {
+	return swaggerTag.getIntValue("max")
+}
+
+// MinLength returns minimum length value from swagger tag.
+func (swaggerTag TagSwagger) MinLength() *int {
+	return swaggerTag.getIntValue("minLen")
+}
+
+// MaxLength returns maximum length value from swagger tag.
+func (swaggerTag TagSwagger) MaxLength() *int {
+	return swaggerTag.getIntValue("maxLen")
+}
+
+// Pattern returns pattern value from swagger tag.
+func (swaggerTag TagSwagger) Pattern() string {
+	text := reflect.StructTag(swaggerTag).Get("swagger")
+	texts := strings.Split(text, ",")[1:]
+
+	for _, text := range texts {
+		if strings.HasPrefix(text, "pattern=") {
+			return text[8:]
+		}
+	}
+
+	return ""
 }
 
 // Object is https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#swagger-object

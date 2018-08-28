@@ -55,11 +55,11 @@ func init() {
 	v.SetValidationFunc("d", golidator.DefaultValidator)
 	v.SetValidationFunc("enum", golidator.EnumValidator)
 
-	// TODO emit to swagger.json
 	v.SetValidationFunc("min", golidator.MinValidator)
 	v.SetValidationFunc("max", golidator.MaxValidator)
 	v.SetValidationFunc("minLen", golidator.MinLenValidator)
 	v.SetValidationFunc("maxLen", golidator.MaxLenValidator)
+	v.SetValidationFunc("pattern", golidator.RegExpValidator)
 
 	// ignore in=path, in=query pattern
 	v.SetValidationFunc("in", func(param string, v reflect.Value) (golidator.ValidationResult, error) {
