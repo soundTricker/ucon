@@ -492,7 +492,6 @@ func TestSwaggerObjectConstructorExtractTypeSchema_withEnumValue(t *testing.T) {
 	t.Logf(string(jsonBody))
 }
 
-
 type HasReqValue struct {
 	ReqValue    string `swagger:",req" json:"reqValue"`
 	NotReqValue string `swagger:""`
@@ -527,6 +526,58 @@ func TestSwaggerObjectConstructorExtractTypeSchema_withReqValue(t *testing.T) {
 		}
 	}
 
+	jsonBody, err := json.MarshalIndent(ts, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf(string(jsonBody))
+}
+
+type HasValidatorValue struct {
+	String  string `swagger:",pattern=\\d+,minLen=10,maxLen=100"`
+	Integer int64  `swagger:",min=100,max=1000"`
+}
+
+func TestSwaggerObjectConstructorExtractTypeSchema_withValidatorValue(t *testing.T) {
+	p := NewPlugin(nil)
+	ts, err := p.constructor.extractTypeSchema(reflect.TypeOf(&HasValidatorValue{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.constructor.execFinisher()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ts.RefName != "HasValidatorValue" {
+		t.Errorf("unexpected: %v", ts.RefName)
+	}
+
+	if ts.Schema.Type != "object" {
+		t.Errorf("unexpected: %v", ts.Schema.Type)
+	}
+	if v := ts.Schema.Properties["String"]; v == nil {
+		t.Errorf("unexpected: %v in String", v)
+	} else if v.Type != "string" {
+		t.Errorf("unexpected: %v in String", v)
+	} else if v.Pattern != `\d+` {
+		t.Errorf("unexpected: %v in String", v)
+	} else if *v.MinLength != 10 {
+		t.Errorf("unexpected: %v in String", v)
+	} else if *v.MaxLength != 100 {
+		t.Errorf("unexpected: %v in String", v)
+	}
+
+	if v := ts.Schema.Properties["Integer"]; v == nil {
+		t.Errorf("unexpected: %v in Integer", v)
+	} else if v.Type != "integer" {
+		t.Errorf("unexpected: %v in Integer", v)
+	} else if *v.Minimum != 100 {
+		t.Errorf("unexpected: %v in Integer", v)
+	} else if *v.Maximum != 1000 {
+		t.Errorf("unexpected: %v in Integer", v)
+	}
 
 	jsonBody, err := json.MarshalIndent(ts, "", "  ")
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/favclip/golidator"
 	"github.com/favclip/ucon"
+	"regexp"
 )
 
 // DefaultValidator used in RequestValidator.
@@ -55,7 +56,6 @@ func init() {
 	v.SetValidationFunc("d", golidator.DefaultValidator)
 	v.SetValidationFunc("enum", golidator.EnumValidator)
 
-	// TODO emit to swagger.json
 	v.SetValidationFunc("min", golidator.MinValidator)
 	v.SetValidationFunc("max", golidator.MaxValidator)
 	v.SetValidationFunc("minLen", golidator.MinLenValidator)
@@ -64,6 +64,24 @@ func init() {
 	// ignore in=path, in=query pattern
 	v.SetValidationFunc("in", func(param string, v reflect.Value) (golidator.ValidationResult, error) {
 		return golidator.ValidationOK, nil
+	})
+
+	v.SetValidationFunc("pattern", func(param string, value reflect.Value) (golidator.ValidationResult, error) {
+		switch value.Kind() {
+		case reflect.String:
+			b, err := regexp.MatchString(param, value.String())
+
+			if err != nil {
+				return golidator.ValidationNG, err
+			}
+
+			if b {
+				return golidator.ValidationOK, nil
+			} else {
+				return golidator.ValidationNG, nil
+			}
+		}
+		return golidator.ValidationNG, nil
 	})
 
 	DefaultValidator = v

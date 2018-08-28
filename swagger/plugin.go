@@ -320,12 +320,17 @@ func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.
 			// in path
 			if pw.InPath() {
 				op.Parameters = append(op.Parameters, &Parameter{
-					Name:     paramName,
-					In:       "path",
-					Required: true,
-					Type:     pw.ParameterType(),
-					Format:   pw.ParameterFormat(),
-					Enum:     pw.ParameterEnum(),
+					Name:      paramName,
+					In:        "path",
+					Required:  true,
+					Type:      pw.ParameterType(),
+					Format:    pw.ParameterFormat(),
+					Enum:      pw.ParameterEnum(),
+					Minimum:   pw.Minimum(),
+					Maximum:   pw.Maximum(),
+					MinLength: pw.MinLength(),
+					MaxLength: pw.MaxLength(),
+					Pattern:   pw.Pattern(),
 				})
 
 				continue
@@ -335,12 +340,17 @@ func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.
 						continue
 					}
 					op.Parameters = append(op.Parameters, &Parameter{
-						Name:     paramName,
-						In:       "path",
-						Required: true,
-						Type:     pw.ParameterType(),
-						Format:   pw.ParameterFormat(),
-						Enum:     pw.ParameterEnum(),
+						Name:      paramName,
+						In:        "path",
+						Required:  true,
+						Type:      pw.ParameterType(),
+						Format:    pw.ParameterFormat(),
+						Enum:      pw.ParameterEnum(),
+						Minimum:   pw.Minimum(),
+						Maximum:   pw.Maximum(),
+						MinLength: pw.MinLength(),
+						MaxLength: pw.MaxLength(),
+						Pattern:   pw.Pattern(),
 					})
 					continue outer
 				}
@@ -349,11 +359,16 @@ func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.
 			// in query
 			if pw.InQuery() {
 				param := &Parameter{
-					Name:     pw.Name(),
-					In:       "query",
-					Required: pw.Required(),
-					Type:     pw.ParameterType(),
-					Format:   pw.ParameterFormat(),
+					Name:      pw.Name(),
+					In:        "query",
+					Required:  pw.Required(),
+					Type:      pw.ParameterType(),
+					Format:    pw.ParameterFormat(),
+					Minimum:   pw.Minimum(),
+					Maximum:   pw.Maximum(),
+					MinLength: pw.MinLength(),
+					MaxLength: pw.MaxLength(),
+					Pattern:   pw.Pattern(),
 				}
 				if param.Type == "array" {
 					fiInfo, err := soConstructor.extractFieldInfo(pw.StructField)
@@ -636,8 +651,19 @@ func (soConstructor *swaggerObjectConstructor) extractTypeSchema(refT reflect.Ty
 						fiSchema.Type = "string"
 					}
 
-					if NewTagSwagger(fiInfo.Base.Tag).Required() {
+					tagSwagger := NewTagSwagger(fiInfo.Base.Tag)
+
+					if tagSwagger.Required() {
 						schema.Required = append(schema.Required, fiInfo.Name())
+					}
+					switch fiSchema.Type {
+					case "string":
+						fiSchema.Pattern = tagSwagger.Pattern()
+						fiSchema.MinLength = tagSwagger.MinLength()
+						fiSchema.MaxLength = tagSwagger.MaxLength()
+					case "integer", "number":
+						fiSchema.Minimum = tagSwagger.Minimum()
+						fiSchema.Maximum = tagSwagger.Maximum()
 					}
 
 					fiSchema.Enum = fiInfo.Enum
@@ -868,6 +894,31 @@ func (pw *parameterWrapper) Private() bool {
 	}
 
 	return false
+}
+
+func (pw *parameterWrapper) Maximum() *int {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.Maximum()
+}
+
+func (pw *parameterWrapper) Minimum() *int {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.Minimum()
+}
+
+func (pw *parameterWrapper) MaxLength() *int {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.MaxLength()
+}
+
+func (pw *parameterWrapper) MinLength() *int {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.MinLength()
+}
+
+func (pw *parameterWrapper) Pattern() string {
+	swaggerTag := NewTagSwagger(pw.StructField.Tag)
+	return swaggerTag.Pattern()
 }
 
 // NewHandlerInfo returns new HandlerInfo containing given handler function.

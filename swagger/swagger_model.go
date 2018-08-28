@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/favclip/ucon"
+	"strconv"
 )
 
 // TagSwagger is a struct tag for setting attributes of swagger.
@@ -110,6 +111,52 @@ func (swaggerTag TagSwagger) Enum() []string {
 	}
 
 	return nil
+}
+
+func (swaggerTag TagSwagger) getIntValue(tagName string) *int {
+	tag := tagName + "="
+	text := reflect.StructTag(swaggerTag).Get("swagger")
+	texts := strings.Split(text, ",")[1:]
+
+	for _, text := range texts {
+		if strings.HasPrefix(text, tag) {
+			val, err := strconv.Atoi(text[len(tag):])
+			if err == nil {
+				return &val
+			}
+		}
+	}
+
+	return nil
+}
+
+func (swaggerTag TagSwagger) Minimum() *int {
+	return swaggerTag.getIntValue("min")
+}
+
+func (swaggerTag TagSwagger) Maximum() *int {
+	return swaggerTag.getIntValue("max")
+}
+
+func (swaggerTag TagSwagger) MinLength() *int {
+	return swaggerTag.getIntValue("minLen")
+}
+
+func (swaggerTag TagSwagger) MaxLength() *int {
+	return swaggerTag.getIntValue("maxLen")
+}
+
+func (swaggerTag TagSwagger) Pattern() string {
+	text := reflect.StructTag(swaggerTag).Get("swagger")
+	texts := strings.Split(text, ",")[1:]
+
+	for _, text := range texts {
+		if strings.HasPrefix(text, "pattern=") {
+			return text[8:]
+		}
+	}
+
+	return ""
 }
 
 // Object is https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#swagger-object
