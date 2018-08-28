@@ -130,22 +130,27 @@ func (swaggerTag TagSwagger) getIntValue(tagName string) *int {
 	return nil
 }
 
+// Minimum returns min value from swagger tag.
 func (swaggerTag TagSwagger) Minimum() *int {
 	return swaggerTag.getIntValue("min")
 }
 
+// Maximum returns max value from swagger tag.
 func (swaggerTag TagSwagger) Maximum() *int {
 	return swaggerTag.getIntValue("max")
 }
 
+// MinLength returns minimum length value from swagger tag.
 func (swaggerTag TagSwagger) MinLength() *int {
 	return swaggerTag.getIntValue("minLen")
 }
 
+// MaxLength returns maximum length value from swagger tag.
 func (swaggerTag TagSwagger) MaxLength() *int {
 	return swaggerTag.getIntValue("maxLen")
 }
 
+// Pattern returns pattern value from swagger tag.
 func (swaggerTag TagSwagger) Pattern() string {
 	text := reflect.StructTag(swaggerTag).Get("swagger")
 	texts := strings.Split(text, ",")[1:]
