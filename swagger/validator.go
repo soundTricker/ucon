@@ -3,10 +3,10 @@ package swagger
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 
 	"github.com/favclip/golidator"
 	"github.com/favclip/ucon"
-	"regexp"
 )
 
 // DefaultValidator used in RequestValidator.

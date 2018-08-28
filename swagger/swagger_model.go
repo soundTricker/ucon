@@ -3,10 +3,10 @@ package swagger
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/favclip/ucon"
-	"strconv"
 )
 
 // TagSwagger is a struct tag for setting attributes of swagger.
