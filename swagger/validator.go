@@ -3,7 +3,6 @@ package swagger
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 
 	"github.com/favclip/golidator"
 	"github.com/favclip/ucon"
@@ -60,28 +59,11 @@ func init() {
 	v.SetValidationFunc("max", golidator.MaxValidator)
 	v.SetValidationFunc("minLen", golidator.MinLenValidator)
 	v.SetValidationFunc("maxLen", golidator.MaxLenValidator)
+	v.SetValidationFunc("pattern", golidator.RegExpValidator)
 
 	// ignore in=path, in=query pattern
 	v.SetValidationFunc("in", func(param string, v reflect.Value) (golidator.ValidationResult, error) {
 		return golidator.ValidationOK, nil
-	})
-
-	v.SetValidationFunc("pattern", func(param string, value reflect.Value) (golidator.ValidationResult, error) {
-		switch value.Kind() {
-		case reflect.String:
-			b, err := regexp.MatchString(param, value.String())
-
-			if err != nil {
-				return golidator.ValidationNG, err
-			}
-
-			if b {
-				return golidator.ValidationOK, nil
-			} else {
-				return golidator.ValidationNG, nil
-			}
-		}
-		return golidator.ValidationNG, nil
 	})
 
 	DefaultValidator = v
