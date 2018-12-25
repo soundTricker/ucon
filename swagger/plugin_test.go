@@ -82,47 +82,51 @@ func TestSwaggerObjectConstructorProcessHandler(t *testing.T) {
 	} else if len(v.Get.Parameters) != 4 {
 		t.Errorf("unexpected: %v", len(v.Get.Parameters))
 	} else {
-		for _, p := range v.Get.Parameters {
-			// TODO そのうち順番が固定されるようにしたい…
-			switch p.Name {
-			case "id":
-				if p.In != "path" {
-					t.Errorf("unexpected: %v", p.In)
-				} else if p.Type != "integer" {
-					t.Errorf("unexpected: %v", p.Type)
-				}
-			case "limit":
-				if p.In != "query" {
-					t.Errorf("unexpected: %v", p.In)
-				} else if p.Type != "integer" {
-					t.Errorf("unexpected: %v", p.Type)
-				}
-			case "offset":
-				if p.In != "query" {
-					t.Errorf("unexpected: %v", p.In)
-				} else if p.Type != "integer" {
-					t.Errorf("unexpected: %v", p.Type)
-				}
-			case "list":
-				if p.In != "query" {
-					t.Errorf("unexpected: %v", p.In)
-					break
-				}
-				if p.Type != "array" {
-					t.Errorf("unexpected: %v", p.Type)
-					break
-				}
-				if p.Items == nil {
-					t.Errorf("unexpected: %#v", p.Items)
-					break
-				}
-				if p.Items.Type != "string" {
-					t.Errorf("unexpected: %#v", p.Items)
-					break
-				}
-			default:
-				t.Fatalf("unknown name: %s", p.Name)
-			}
+		p0 := v.Get.Parameters[0]
+		if p0.Name != "id" {
+			t.Fatalf("unexpected name: %s", p0.Name)
+		}
+		if p0.In != "path" {
+			t.Errorf("unexpected: %v", p0.In)
+		} else if p0.Type != "integer" {
+			t.Errorf("unexpected: %v", p0.Type)
+		}
+
+		p1 := v.Get.Parameters[1]
+		if p1.Name != "limit" {
+			t.Fatalf("unexpected name: %s", p1.Name)
+		}
+		if p1.In != "query" {
+			t.Errorf("unexpected: %v", p1.In)
+		} else if p1.Type != "integer" {
+			t.Errorf("unexpected: %v", p1.Type)
+		}
+
+		p2 := v.Get.Parameters[2]
+		if p2.Name != "list" {
+			t.Fatalf("unexpected name: %s", p2.Name)
+		}
+		if p2.In != "query" {
+			t.Errorf("unexpected: %v", p2.In)
+		}
+		if p2.Type != "array" {
+			t.Errorf("unexpected: %v", p2.Type)
+		}
+		if p2.Items == nil {
+			t.Errorf("unexpected: %#v", p2.Items)
+		}
+		if p2.Items.Type != "string" {
+			t.Errorf("unexpected: %#v", p2.Items)
+		}
+
+		p3 := v.Get.Parameters[3]
+		if p3.Name != "offset" {
+			t.Fatalf("unexpected name: %s", p3.Name)
+		}
+		if p3.In != "query" {
+			t.Errorf("unexpected: %v", p3.In)
+		} else if p3.Type != "integer" {
+			t.Errorf("unexpected: %v", p3.Type)
 		}
 
 		if v.Get.Responses["200"].Schema.Ref != "#/definitions/Resp" {
