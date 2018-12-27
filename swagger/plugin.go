@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strconv"
 	"time"
 
@@ -309,14 +310,17 @@ func (soConstructor *swaggerObjectConstructor) extractSwaggerOperation(rd *ucon.
 	// parameter
 	var bodyParameter *Parameter
 	if reqType != nil {
-		paramMap, err := soConstructor.extractParameterMapperMap(reqType)
+		paramNames, paramMap, err := soConstructor.extractParameterMapperMap(reqType)
 		if err != nil {
 			return nil, err
 		}
+		sort.Strings(paramNames)
 
 		needBody := false
 	outer:
-		for paramName, pw := range paramMap {
+		for _, paramName := range paramNames {
+			pw := paramMap[paramName]
+
 			// in path
 			if pw.InPath() {
 				op.Parameters = append(op.Parameters, &Parameter{
@@ -710,7 +714,8 @@ func (soConstructor *swaggerObjectConstructor) extractTypeSchema(refT reflect.Ty
 	return ts, nil
 }
 
-func (soConstructor *swaggerObjectConstructor) extractParameterMapperMap(refT reflect.Type) (map[string]*parameterWrapper, error) {
+func (soConstructor *swaggerObjectConstructor) extractParameterMapperMap(refT reflect.Type) ([]string, map[string]*parameterWrapper, error) {
+	paramNames := make([]string, 0)
 	parameterMap := make(map[string]*parameterWrapper, 0)
 
 	var process func(refT reflect.Type) error
@@ -742,6 +747,7 @@ func (soConstructor *swaggerObjectConstructor) extractParameterMapperMap(refT re
 				name = sf.Name
 			}
 
+			paramNames = append(paramNames, name)
 			parameterMap[name] = pw
 		}
 		return nil
@@ -749,10 +755,10 @@ func (soConstructor *swaggerObjectConstructor) extractParameterMapperMap(refT re
 
 	err := process(refT)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return parameterMap, nil
+	return paramNames, parameterMap, nil
 }
 
 func (soConstructor *swaggerObjectConstructor) addFinisher(f func() error) {
