@@ -165,23 +165,23 @@ func RequestObjectMapper() MiddlewareFunc {
 			}
 		}
 
-		var body []byte
-		var err error
-		if b.R.Body != nil {
-			// this case occured in unit test
-			defer b.R.Body.Close()
-			body, err = ioutil.ReadAll(b.R.Body)
-		}
-		if err != nil {
-			return err
-		}
-
 		// request body as JSON
 		{
 			// where is the spec???
 			ct := strings.Split(b.R.Header.Get("Content-Type"), ";")
 			// TODO check charset
 			if ct[0] == "application/json" {
+				var body []byte
+				var err error
+				if b.R.Body != nil {
+					// this case occured in unit test
+					defer b.R.Body.Close()
+					body, err = ioutil.ReadAll(b.R.Body)
+				}
+				if err != nil {
+					return err
+				}
+
 				if len(body) == 2 {
 					// dirty hack. {} map to []interface or [] map to normal struct.
 				} else if len(body) != 0 {
