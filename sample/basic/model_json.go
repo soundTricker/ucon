@@ -26,26 +26,42 @@ type TodoPropertyDecoder func(src *TodoJSON, dest *Todo) error
 
 // TodoPropertyInfo stores property information.
 type TodoPropertyInfo struct {
-	name    string
-	Encoder TodoPropertyEncoder
-	Decoder TodoPropertyDecoder
+	fieldName string
+	jsonName  string
+	Encoder   TodoPropertyEncoder
+	Decoder   TodoPropertyDecoder
+}
+
+// FieldName returns struct field name of property.
+func (info *TodoPropertyInfo) FieldName() string {
+	return info.fieldName
+}
+
+// JSONName returns json field name of property.
+func (info *TodoPropertyInfo) JSONName() string {
+	return info.jsonName
 }
 
 // TodoJSONBuilder convert between Todo to TodoJSON mutually.
 type TodoJSONBuilder struct {
-	_properties map[string]*TodoPropertyInfo
-	ID          *TodoPropertyInfo
-	Text        *TodoPropertyInfo
-	Done        *TodoPropertyInfo
-	CreatedAt   *TodoPropertyInfo
+	_properties        map[string]*TodoPropertyInfo
+	_jsonPropertyMap   map[string]*TodoPropertyInfo
+	_structPropertyMap map[string]*TodoPropertyInfo
+	ID                 *TodoPropertyInfo
+	Text               *TodoPropertyInfo
+	Done               *TodoPropertyInfo
+	CreatedAt          *TodoPropertyInfo
 }
 
 // NewTodoJSONBuilder make new TodoJSONBuilder.
 func NewTodoJSONBuilder() *TodoJSONBuilder {
-	return &TodoJSONBuilder{
-		_properties: map[string]*TodoPropertyInfo{},
+	jb := &TodoJSONBuilder{
+		_properties:        map[string]*TodoPropertyInfo{},
+		_jsonPropertyMap:   map[string]*TodoPropertyInfo{},
+		_structPropertyMap: map[string]*TodoPropertyInfo{},
 		ID: &TodoPropertyInfo{
-			name: "ID",
+			fieldName: "ID",
+			jsonName:  "id",
 			Encoder: func(src *Todo, dest *TodoJSON) error {
 				if src == nil {
 					return nil
@@ -62,7 +78,8 @@ func NewTodoJSONBuilder() *TodoJSONBuilder {
 			},
 		},
 		Text: &TodoPropertyInfo{
-			name: "Text",
+			fieldName: "Text",
+			jsonName:  "text",
 			Encoder: func(src *Todo, dest *TodoJSON) error {
 				if src == nil {
 					return nil
@@ -79,7 +96,8 @@ func NewTodoJSONBuilder() *TodoJSONBuilder {
 			},
 		},
 		Done: &TodoPropertyInfo{
-			name: "Done",
+			fieldName: "Done",
+			jsonName:  "done",
 			Encoder: func(src *Todo, dest *TodoJSON) error {
 				if src == nil {
 					return nil
@@ -96,7 +114,8 @@ func NewTodoJSONBuilder() *TodoJSONBuilder {
 			},
 		},
 		CreatedAt: &TodoPropertyInfo{
-			name: "CreatedAt",
+			fieldName: "CreatedAt",
+			jsonName:  "createdAt",
 			Encoder: func(src *Todo, dest *TodoJSON) error {
 				if src == nil {
 					return nil
@@ -113,6 +132,25 @@ func NewTodoJSONBuilder() *TodoJSONBuilder {
 			},
 		},
 	}
+	jb._structPropertyMap["ID"] = jb.ID
+	jb._jsonPropertyMap["id"] = jb.ID
+	jb._structPropertyMap["Text"] = jb.Text
+	jb._jsonPropertyMap["text"] = jb.Text
+	jb._structPropertyMap["Done"] = jb.Done
+	jb._jsonPropertyMap["done"] = jb.Done
+	jb._structPropertyMap["CreatedAt"] = jb.CreatedAt
+	jb._jsonPropertyMap["createdAt"] = jb.CreatedAt
+	return jb
+}
+
+// Properties returns all properties on TodoJSONBuilder.
+func (b *TodoJSONBuilder) Properties() []*TodoPropertyInfo {
+	return []*TodoPropertyInfo{
+		b.ID,
+		b.Text,
+		b.Done,
+		b.CreatedAt,
+	}
 }
 
 // AddAll adds all property to TodoJSONBuilder.
@@ -125,14 +163,67 @@ func (b *TodoJSONBuilder) AddAll() *TodoJSONBuilder {
 }
 
 // Add specified property to TodoJSONBuilder.
-func (b *TodoJSONBuilder) Add(info *TodoPropertyInfo) *TodoJSONBuilder {
-	b._properties[info.name] = info
+func (b *TodoJSONBuilder) Add(infos ...*TodoPropertyInfo) *TodoJSONBuilder {
+	for _, info := range infos {
+		b._properties[info.fieldName] = info
+	}
+	return b
+}
+
+// AddByJSONNames add properties to TodoJSONBuilder by JSON property name. if name is not in the builder, it will ignore.
+func (b *TodoJSONBuilder) AddByJSONNames(names ...string) *TodoJSONBuilder {
+	for _, name := range names {
+		info := b._jsonPropertyMap[name]
+		if info == nil {
+			continue
+		}
+		b._properties[info.fieldName] = info
+	}
+	return b
+}
+
+// AddByNames add properties to TodoJSONBuilder by struct property name. if name is not in the builder, it will ignore.
+func (b *TodoJSONBuilder) AddByNames(names ...string) *TodoJSONBuilder {
+	for _, name := range names {
+		info := b._structPropertyMap[name]
+		if info == nil {
+			continue
+		}
+		b._properties[info.fieldName] = info
+	}
 	return b
 }
 
 // Remove specified property to TodoJSONBuilder.
-func (b *TodoJSONBuilder) Remove(info *TodoPropertyInfo) *TodoJSONBuilder {
-	delete(b._properties, info.name)
+func (b *TodoJSONBuilder) Remove(infos ...*TodoPropertyInfo) *TodoJSONBuilder {
+	for _, info := range infos {
+		delete(b._properties, info.fieldName)
+	}
+	return b
+}
+
+// RemoveByJSONNames remove properties to TodoJSONBuilder by JSON property name. if name is not in the builder, it will ignore.
+func (b *TodoJSONBuilder) RemoveByJSONNames(names ...string) *TodoJSONBuilder {
+
+	for _, name := range names {
+		info := b._jsonPropertyMap[name]
+		if info == nil {
+			continue
+		}
+		delete(b._properties, info.fieldName)
+	}
+	return b
+}
+
+// RemoveByNames remove properties to TodoJSONBuilder by struct property name. if name is not in the builder, it will ignore.
+func (b *TodoJSONBuilder) RemoveByNames(names ...string) *TodoJSONBuilder {
+	for _, name := range names {
+		info := b._structPropertyMap[name]
+		if info == nil {
+			continue
+		}
+		delete(b._properties, info.fieldName)
+	}
 	return b
 }
 

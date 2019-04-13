@@ -2,7 +2,7 @@
 
 goimports -w .
 go generate ./...
-go tool vet .
+go vet .
 golint .
 golint swagger
 go test ./... $@
