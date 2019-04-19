@@ -25,10 +25,10 @@ var stringParserType = reflect.TypeOf((*StringParser)(nil)).Elem()
 var PathParameterKey = &struct{ temp string }{}
 
 // ErrInvalidPathParameterType is the error that context with PathParameterKey key returns not map[string]string type.
-var ErrInvalidPathParameterType = errors.New("path parameter type should be map[string]string")
+var ErrInvalidPathParameterType = newBadRequestf("path parameter type should be map[string]string")
 
 // ErrPathParameterFieldMissing is the path parameter mapping error.
-var ErrPathParameterFieldMissing = errors.New("can't find path parameter in struct")
+var ErrPathParameterFieldMissing = newBadRequestf("can't find path parameter in struct")
 
 // ErrCSRFBadToken is the error returns CSRF token verify failure.
 var ErrCSRFBadToken = newBadRequestf("invalid CSRF token")
