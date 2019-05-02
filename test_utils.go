@@ -13,6 +13,7 @@ import (
 type BubbleTestOption struct {
 	Method            string
 	URL               string
+	ContentType       string
 	Body              io.Reader
 	MiddlewareContext Context
 }
@@ -37,7 +38,11 @@ func MakeMiddlewareTestBed(t *testing.T, middleware MiddlewareFunc, handler inte
 	}
 
 	if opts.Body != nil {
-		r.Header.Add("Content-Type", "application/json")
+		if opts.ContentType != "" {
+			r.Header.Add("Content-Type", opts.ContentType)
+		} else {
+			r.Header.Add("Content-Type", "application/json")
+		}
 	}
 
 	w := httptest.NewRecorder()

@@ -190,6 +190,19 @@ func RequestObjectMapper() MiddlewareFunc {
 						return newBadRequestf(err.Error())
 					}
 				}
+
+			} else if ct[0] == "application/x-www-form-urlencoded" {
+				err := b.R.ParseForm()
+				if err != nil {
+					return err
+				}
+
+				for key, ss := range b.R.Form {
+					_, err := valueStringSliceMapper(reqV, key, ss)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 		// NOTE need request body as a=b&c=d style parsing?
