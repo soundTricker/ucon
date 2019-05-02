@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -45,7 +46,7 @@ type TargetOfRequestObjectMapper struct {
 	Text   string `json:"text"`
 }
 
-func TestRequestObjectMapper(t *testing.T) {
+func TestRequestObjectMapper_withJSON(t *testing.T) {
 	b, _ := MakeMiddlewareTestBed(t, RequestObjectMapper(), func(req *TargetOfRequestObjectMapper) {
 		if req.ID != 5 {
 			t.Errorf("unexpected: %v", req.ID)
@@ -57,9 +58,38 @@ func TestRequestObjectMapper(t *testing.T) {
 			t.Errorf("unexpected: %v", req.Text)
 		}
 	}, &BubbleTestOption{
-		Method: "POST",
-		URL:    "/api/todo/{id}?offset=10&limit=3",
-		Body:   strings.NewReader("{\"text\":\"Hi!\"}"),
+		Method:      "POST",
+		URL:         "/api/todo/{id}?offset=10&limit=3",
+		ContentType: "application/json",
+		Body:        strings.NewReader("{\"text\":\"Hi!\"}"),
+	})
+	b.Context = context.WithValue(b.Context, PathParameterKey, map[string]string{
+		"id": "5",
+	})
+	err := b.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRequestObjectMapper_withPostForm(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, RequestObjectMapper(), func(req *TargetOfRequestObjectMapper) {
+		if req.ID != 5 {
+			t.Errorf("unexpected: %v", req.ID)
+		}
+		if req.Offset != 10 {
+			t.Errorf("unexpected: %v", req.Offset)
+		}
+		if req.Text != "Hi!" {
+			t.Errorf("unexpected: %v", req.Text)
+		}
+	}, &BubbleTestOption{
+		Method:      "POST",
+		URL:         "/api/todo/{id}?offset=10&limit=3",
+		ContentType: "application/x-www-form-urlencoded",
+		Body: strings.NewReader(url.Values{
+			"text": []string{"Hi!"},
+		}.Encode()),
 	})
 	b.Context = context.WithValue(b.Context, PathParameterKey, map[string]string{
 		"id": "5",
