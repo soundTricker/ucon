@@ -354,7 +354,7 @@ func RequestValidator(validator Validator) MiddlewareFunc {
 			}
 
 			rv := b.Arguments[idx]
-			if rv.IsNil() || !rv.IsValid() {
+			if !rv.IsValid() || rv.IsNil() {
 				continue
 			}
 			v := rv.Interface()

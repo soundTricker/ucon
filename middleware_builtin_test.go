@@ -310,6 +310,17 @@ func TestRequestValidator_invalidRequest(t *testing.T) {
 	}
 }
 
+func TestRequestValidator_shortageRequest(t *testing.T) {
+	b, _ := MakeMiddlewareTestBed(t, RequestValidator(nil), func(req *TargetRequestValidate) {
+	}, nil)
+	b.Arguments[0] = reflect.Value{}
+
+	err := b.Next()
+	if err == nil {
+		t.Errorf("unexpected: %v", err)
+	}
+}
+
 func TestCSRFProtect_safeMethodWithoutCSRFToken(t *testing.T) {
 	mw, err := CSRFProtect(&CSRFOption{
 		Salt: []byte("foobar"),
