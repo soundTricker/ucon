@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 func main() {

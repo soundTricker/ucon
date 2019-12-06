@@ -1,5 +1,7 @@
 module github.com/favclip/ucon
 
+go 1.13
+
 require (
 	github.com/RangelReale/osin v1.0.1
 	github.com/favclip/genbase v1.0.0 // indirect
