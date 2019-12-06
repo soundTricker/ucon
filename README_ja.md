@@ -18,7 +18,7 @@ package main
 import (
 	"net/http"
 	
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 func main() {
@@ -107,7 +107,7 @@ import (
 	"fmt"
 	"net/http"
 	
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 func main() {
@@ -149,7 +149,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 func main() {

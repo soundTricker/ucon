@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/favclip/ucon"
-	"github.com/favclip/ucon/swagger"
+	"github.com/favclip/ucon/v3"
+	"github.com/favclip/ucon/v3/swagger"
 )
 
 func main() {
