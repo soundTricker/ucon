@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 // TagSwagger is a struct tag for setting attributes of swagger.

@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/favclip/golidator"
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 // DefaultValidator used in RequestValidator.

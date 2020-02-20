@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/favclip/ucon"
+	"github.com/favclip/ucon/v3"
 )
 
 type TargetRequestValidate struct {
