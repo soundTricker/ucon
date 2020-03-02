@@ -134,6 +134,7 @@ type HandlerInfo struct {
 type Options struct {
 	Object                 *Object
 	DefinitionNameModifier func(refT reflect.Type, defName string) string
+	IgnoreRoute            func(rd *ucon.RouteDefinition) bool
 }
 
 // NewPlugin returns new swagger plugin configured with the options.
@@ -197,6 +198,10 @@ func (soConstructor *swaggerObjectConstructor) processHandler(rd *ucon.RouteDefi
 	item := soConstructor.object.Paths[rd.PathTemplate.PathTemplate]
 	if item == nil {
 		item = &PathItem{}
+	}
+
+	if soConstructor.plugin.options.IgnoreRoute != nil && soConstructor.plugin.options.IgnoreRoute(rd) {
+		return nil
 	}
 
 	var setOperation func(op *Operation)

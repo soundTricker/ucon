@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -589,4 +590,173 @@ func TestSwaggerObjectConstructorExtractTypeSchema_withValidatorValue(t *testing
 	}
 
 	t.Logf(string(jsonBody))
+}
+
+func TestSwaggerObjectConstructorProcessHandler_withIgnoreRoute_notMatch(t *testing.T) {
+	p := NewPlugin(&Options{IgnoreRoute: func(rd *ucon.RouteDefinition) bool {
+		return strings.HasPrefix(rd.PathTemplate.PathTemplate, "/admin")
+	}})
+
+	rd := &ucon.RouteDefinition{
+		Method:       "GET",
+		PathTemplate: ucon.ParsePathTemplate("/api/test/{id}"),
+		HandlerContainer: &handlerContainerImpl{
+			handler: func(c context.Context, req *ReqSwaggerParameter) (*Resp, error) {
+				return nil, nil
+			},
+		},
+	}
+
+	err := p.constructor.processHandler(rd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	swObj := p.constructor.object
+
+	swObj.Info = &Info{
+		Title:   "test",
+		Version: "test",
+	}
+	err = swObj.finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if v := len(swObj.Paths); v != 1 {
+		t.Fatalf("unexpected: %v", v)
+	}
+	if v, ok := swObj.Paths["/api/test/{id}"]; !ok {
+		t.Errorf("unexpected: %v", ok)
+	} else if v.Get == nil {
+		t.Errorf("unexpected: %v", v.Get)
+	} else if len(v.Get.Parameters) != 4 {
+		t.Errorf("unexpected: %v", len(v.Get.Parameters))
+	} else {
+		p0 := v.Get.Parameters[0]
+		if p0.Name != "id" {
+			t.Fatalf("unexpected name: %s", p0.Name)
+		}
+		if p0.In != "path" {
+			t.Errorf("unexpected: %v", p0.In)
+		} else if p0.Type != "integer" {
+			t.Errorf("unexpected: %v", p0.Type)
+		}
+
+		p1 := v.Get.Parameters[1]
+		if p1.Name != "limit" {
+			t.Fatalf("unexpected name: %s", p1.Name)
+		}
+		if p1.In != "query" {
+			t.Errorf("unexpected: %v", p1.In)
+		} else if p1.Type != "integer" {
+			t.Errorf("unexpected: %v", p1.Type)
+		}
+
+		p2 := v.Get.Parameters[2]
+		if p2.Name != "list" {
+			t.Fatalf("unexpected name: %s", p2.Name)
+		}
+		if p2.In != "query" {
+			t.Errorf("unexpected: %v", p2.In)
+		}
+		if p2.Type != "array" {
+			t.Errorf("unexpected: %v", p2.Type)
+		}
+		if p2.Items == nil {
+			t.Errorf("unexpected: %#v", p2.Items)
+		}
+		if p2.Items.Type != "string" {
+			t.Errorf("unexpected: %#v", p2.Items)
+		}
+
+		p3 := v.Get.Parameters[3]
+		if p3.Name != "offset" {
+			t.Fatalf("unexpected name: %s", p3.Name)
+		}
+		if p3.In != "query" {
+			t.Errorf("unexpected: %v", p3.In)
+		} else if p3.Type != "integer" {
+			t.Errorf("unexpected: %v", p3.Type)
+		}
+
+		if v.Get.Responses["200"].Schema.Ref != "#/definitions/Resp" {
+			t.Errorf("unexpected: %v", v.Get.Responses["200"].Schema.Ref)
+		}
+	}
+
+	if v := len(swObj.Definitions); v != 2 {
+		for k := range swObj.Definitions {
+			t.Log(k)
+		}
+		t.Fatalf("unexpected: %v, ", v)
+	}
+
+	if v, ok := swObj.Definitions["Resp"]; !ok {
+		t.Errorf("unexpected: %v", ok)
+	} else if v.Type != "object" {
+		t.Errorf("unexpected: %v", v.Type)
+	} else if v.Ref != "" {
+		t.Errorf("unexpected: %v", v.Ref)
+	} else if v2, ok := v.Properties["content"]; !ok {
+		t.Errorf("unexpected: %v", ok)
+	} else if v2.Ref != "#/definitions/RespSub" {
+		t.Errorf("unexpected: %v", v2.Ref)
+	} else if v3, ok := v.Properties["id"]; !ok {
+		t.Errorf("unexpected: %v", ok)
+	} else if v3.Type != "string" {
+		t.Errorf("unexpected: %v", v3.Type)
+	}
+
+	if v, ok := swObj.Definitions["RespSub"]; !ok {
+		t.Errorf("unexpected: %v", ok)
+	} else if v.Type != "object" {
+		t.Errorf("unexpected: %v", v.Type)
+	} else if v.Ref != "" {
+		t.Errorf("unexpected: %v", v.Ref)
+	} else if v.Properties["id"].Type != "string" {
+		t.Errorf("unexpected: %v", v.Properties["id"].Type)
+	} else if v.Properties["id"].Format != "int64" {
+		t.Errorf("unexpected: %v", v.Properties["id"].Format)
+	} else if v.Properties["createdAt"].Type != "string" {
+		t.Errorf("unexpected: %v", v.Properties["createdAt"].Type)
+	} else if v.Properties["createdAt"].Format != "date-time" {
+		t.Errorf("unexpected: %v", v.Properties["createdAt"].Format)
+	}
+}
+
+func TestSwaggerObjectConstructorProcessHandler_withIgnoreRoute_match(t *testing.T) {
+	p := NewPlugin(&Options{IgnoreRoute: func(rd *ucon.RouteDefinition) bool {
+		return strings.HasPrefix(rd.PathTemplate.PathTemplate, "/admin")
+	}})
+
+	rd := &ucon.RouteDefinition{
+		Method:       "GET",
+		PathTemplate: ucon.ParsePathTemplate("/admin/api/test/{id}"),
+		HandlerContainer: &handlerContainerImpl{
+			handler: func(c context.Context, req *ReqSwaggerParameter) (*Resp, error) {
+				return nil, nil
+			},
+		},
+	}
+
+	err := p.constructor.processHandler(rd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	swObj := p.constructor.object
+
+	swObj.Info = &Info{
+		Title:   "test",
+		Version: "test",
+	}
+	err = swObj.finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if v := len(swObj.Paths); v != 0 {
+		t.Fatalf("unexpected: %v", v)
+	}
 }
