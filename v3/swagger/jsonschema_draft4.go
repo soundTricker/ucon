@@ -25,7 +25,7 @@ type Schema struct {
 	Items                *Schema            `json:"items,omitempty"`
 	AllOf                []*Schema          `json:"allOf,omitempty"`
 	Properties           map[string]*Schema `json:"properties,omitempty"`
-	AdditionalProperties map[string]*Schema `json:"additionalProperties,omitempty"`
+	AdditionalProperties *Schema            `json:"additionalProperties,omitempty"`
 	Discriminator        string             `json:"discriminator,omitempty"`
 	ReadOnly             *bool              `json:"readOnly,omitempty"`
 	// Xml XML
