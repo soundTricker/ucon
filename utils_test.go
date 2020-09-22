@@ -29,6 +29,9 @@ type ValueStringMapperSample struct {
 	JBool    bool
 	KTime    valueStringTime
 
+	LPtrBool    *bool
+	MPtrPtrBool **bool
+
 	ValueStringMapperSampleInner
 }
 
@@ -48,6 +51,9 @@ type ValueStringSliceMapperSample struct {
 	IFloat64s []float64
 	JBools    []bool
 	KTimes    []valueStringTime
+
+	LPtrBools    []*bool
+	MPtrPtrBools []**bool
 
 	ValueStringSliceMapperSampleInner
 
@@ -73,6 +79,8 @@ func TestValueStringMapper(t *testing.T) {
 	valueStringMapper(target, "IFloat64", "2.75")
 	valueStringMapper(target, "JBool", "true")
 	valueStringMapper(target, "KTime", "2016-01-07")
+	valueStringMapper(target, "LPtrBool", "true")
+	valueStringMapper(target, "MPtrPtrBool", "true")
 
 	if obj.AString != "This is A" {
 		t.Errorf("unexpected A: %v", obj.AString)
@@ -111,6 +119,12 @@ func TestValueStringMapper(t *testing.T) {
 	} else if d != 7 {
 		t.Errorf("unexpected KTime.d: %v", d)
 	}
+	if obj.LPtrBool == nil || *obj.LPtrBool != true {
+		t.Errorf("unexpected L: %v", obj.LPtrBool)
+	}
+	if obj.MPtrPtrBool == nil || *obj.MPtrPtrBool == nil || **obj.MPtrPtrBool != true {
+		t.Errorf("unexpected M: %v", obj.LPtrBool)
+	}
 }
 
 func TestValueStringSliceMapper(t *testing.T) {
@@ -127,6 +141,8 @@ func TestValueStringSliceMapper(t *testing.T) {
 	valueStringSliceMapper(target, "IFloat64s", []string{"2.75", "22.75"})
 	valueStringSliceMapper(target, "JBools", []string{"true", "false"})
 	valueStringSliceMapper(target, "KTimes", []string{"2016-01-07", "2016-04-05"})
+	valueStringSliceMapper(target, "LPtrBool", []string{"true", "false"})
+	valueStringSliceMapper(target, "MPtrPtrBool", []string{"true", "false"})
 	valueStringSliceMapper(target, "YString", []string{"This is Y"})
 	valueStringSliceMapper(target, "ZString", []string{})
 
