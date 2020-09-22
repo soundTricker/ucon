@@ -201,7 +201,7 @@ func SetValueFromString(f reflect.Value, value string) error {
 
 	for ft.Kind() == reflect.Ptr {
 		ft = ft.Elem()
-		if f.IsZero() {
+		if f.IsNil() {
 			f.Set(reflect.New(ft))
 		}
 		f = f.Elem()
