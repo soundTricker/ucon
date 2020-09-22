@@ -198,8 +198,12 @@ func IsEmpty(fV reflect.Value) bool {
 // SetValueFromString parses string and sets value.
 func SetValueFromString(f reflect.Value, value string) error {
 	ft := f.Type()
-	if ft.Kind() == reflect.Ptr {
+
+	for ft.Kind() == reflect.Ptr {
 		ft = ft.Elem()
+		if f.IsZero() {
+			f.Set(reflect.New(ft))
+		}
 		f = f.Elem()
 	}
 

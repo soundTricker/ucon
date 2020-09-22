@@ -264,6 +264,26 @@ func TestValueStringSliceMapper(t *testing.T) {
 		t.Errorf("unexpected KTime[1].d: %v", d)
 	}
 
+	if len(obj.LPtrBools) != 2 {
+		t.Errorf("unexpected J len: %v", len(obj.JBools))
+	}
+	if obj.LPtrBools[0] != nil && *obj.LPtrBools[0] {
+		t.Errorf("unexpected J[0]: %v", obj.JBools[0])
+	}
+	if obj.LPtrBools[1] != nil && !*obj.LPtrBools[1] {
+		t.Errorf("unexpected J[1]: %v", obj.JBools[1])
+	}
+
+	if len(obj.MPtrPtrBools) != 2 {
+		t.Errorf("unexpected J len: %v", len(obj.JBools))
+	}
+	if obj.MPtrPtrBools[0] != nil && **obj.MPtrPtrBools[0] {
+		t.Errorf("unexpected J[0]: %v", obj.JBools[0])
+	}
+	if obj.MPtrPtrBools[1] != nil && !**obj.MPtrPtrBools[1] {
+		t.Errorf("unexpected J[1]: %v", obj.JBools[1])
+	}
+
 	if obj.YString != "This is Y" {
 		t.Errorf("unexpected Y: %v", obj.YString)
 	}
