@@ -29,6 +29,9 @@ type ValueStringMapperSample struct {
 	JBool    bool
 	KTime    valueStringTime
 
+	LPtrBool    *bool
+	MPtrPtrBool **bool
+
 	ValueStringMapperSampleInner
 }
 
@@ -48,6 +51,10 @@ type ValueStringSliceMapperSample struct {
 	IFloat64s []float64
 	JBools    []bool
 	KTimes    []valueStringTime
+
+	// unsupported
+	// LPtrBools    []*bool
+	// MPtrPtrBools []**bool
 
 	ValueStringSliceMapperSampleInner
 
@@ -73,6 +80,8 @@ func TestValueStringMapper(t *testing.T) {
 	valueStringMapper(target, "IFloat64", "2.75")
 	valueStringMapper(target, "JBool", "true")
 	valueStringMapper(target, "KTime", "2016-01-07")
+	valueStringMapper(target, "LPtrBool", "true")
+	valueStringMapper(target, "MPtrPtrBool", "true")
 
 	if obj.AString != "This is A" {
 		t.Errorf("unexpected A: %v", obj.AString)
@@ -111,6 +120,12 @@ func TestValueStringMapper(t *testing.T) {
 	} else if d != 7 {
 		t.Errorf("unexpected KTime.d: %v", d)
 	}
+	if obj.LPtrBool == nil || *obj.LPtrBool != true {
+		t.Errorf("unexpected L: %v", obj.LPtrBool)
+	}
+	if obj.MPtrPtrBool == nil || *obj.MPtrPtrBool == nil || **obj.MPtrPtrBool != true {
+		t.Errorf("unexpected M: %v", obj.LPtrBool)
+	}
 }
 
 func TestValueStringSliceMapper(t *testing.T) {
@@ -127,11 +142,13 @@ func TestValueStringSliceMapper(t *testing.T) {
 	valueStringSliceMapper(target, "IFloat64s", []string{"2.75", "22.75"})
 	valueStringSliceMapper(target, "JBools", []string{"true", "false"})
 	valueStringSliceMapper(target, "KTimes", []string{"2016-01-07", "2016-04-05"})
+	// valueStringSliceMapper(target, "LPtrBools", []string{"true", "false"})
+	// valueStringSliceMapper(target, "MPtrPtrBools", []string{"true", "false"})
 	valueStringSliceMapper(target, "YString", []string{"This is Y"})
 	valueStringSliceMapper(target, "ZString", []string{})
 
 	if len(obj.AStrings) != 2 {
-		t.Errorf("unexpected A len: %v", len(obj.AStrings))
+		t.Fatalf("unexpected A len: %v", len(obj.AStrings))
 	}
 	if obj.AStrings[0] != "This is A1" {
 		t.Errorf("unexpected A[0]: %v", obj.AStrings[0])
@@ -141,7 +158,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.BStrings) != 2 {
-		t.Errorf("unexpected B len: %v", len(obj.BStrings))
+		t.Fatalf("unexpected B len: %v", len(obj.BStrings))
 	}
 	if obj.BStrings[0] != "This is B1" {
 		t.Errorf("unexpected B[0]: %v", obj.BStrings[0])
@@ -151,7 +168,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.CStrings) != 2 {
-		t.Errorf("unexpected C len: %v", len(obj.CStrings))
+		t.Fatalf("unexpected C len: %v", len(obj.CStrings))
 	}
 	if obj.CStrings[0] != "This is C1" {
 		t.Errorf("unexpected C[0]: %v", obj.CStrings[0])
@@ -161,7 +178,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.DInt8s) != 2 {
-		t.Errorf("unexpected D len: %v", len(obj.DInt8s))
+		t.Fatalf("unexpected D len: %v", len(obj.DInt8s))
 	}
 	if obj.DInt8s[0] != 1 {
 		t.Errorf("unexpected D[0]: %v", obj.DInt8s[0])
@@ -171,7 +188,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.EInt64s) != 2 {
-		t.Errorf("unexpected E len: %v", len(obj.EInt64s))
+		t.Fatalf("unexpected E len: %v", len(obj.EInt64s))
 	}
 	if obj.EInt64s[0] != 2 {
 		t.Errorf("unexpected E[0]: %v", obj.EInt64s[0])
@@ -181,7 +198,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.FUint8s) != 2 {
-		t.Errorf("unexpected F len: %v", len(obj.FUint8s))
+		t.Fatalf("unexpected F len: %v", len(obj.FUint8s))
 	}
 	if obj.FUint8s[0] != 3 {
 		t.Errorf("unexpected F[0]: %v", obj.FUint8s[0])
@@ -191,7 +208,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.GUint64s) != 2 {
-		t.Errorf("unexpected G len: %v", len(obj.GUint64s))
+		t.Fatalf("unexpected G len: %v", len(obj.GUint64s))
 	}
 	if obj.GUint64s[0] != 4 {
 		t.Errorf("unexpected G[0]: %v", obj.GUint64s[0])
@@ -201,7 +218,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.HFloat32s) != 2 {
-		t.Errorf("unexpected H len: %v", len(obj.HFloat32s))
+		t.Fatalf("unexpected H len: %v", len(obj.HFloat32s))
 	}
 	if obj.HFloat32s[0] != 1.25 {
 		t.Errorf("unexpected H[0]: %v", obj.HFloat32s[0])
@@ -211,7 +228,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.IFloat64s) != 2 {
-		t.Errorf("unexpected I len: %v", len(obj.IFloat64s))
+		t.Fatalf("unexpected I len: %v", len(obj.IFloat64s))
 	}
 	if obj.IFloat64s[0] != 2.75 {
 		t.Errorf("unexpected I[0]: %v", obj.IFloat64s[0])
@@ -221,7 +238,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.JBools) != 2 {
-		t.Errorf("unexpected J len: %v", len(obj.JBools))
+		t.Fatalf("unexpected J len: %v", len(obj.JBools))
 	}
 	if obj.JBools[0] != true {
 		t.Errorf("unexpected J[0]: %v", obj.JBools[0])
@@ -231,7 +248,7 @@ func TestValueStringSliceMapper(t *testing.T) {
 	}
 
 	if len(obj.KTimes) != 2 {
-		t.Errorf("unexpected K len: %v", len(obj.KTimes))
+		t.Fatalf("unexpected K len: %v", len(obj.KTimes))
 	}
 	if y, m, d := time.Time(obj.KTimes[0]).Date(); y != 2016 {
 		t.Errorf("unexpected KTime[0].y: %v", y)
